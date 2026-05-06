@@ -1,5 +1,5 @@
 const roles = ["Любая", "Jungle", "EXP", "Mid", "Gold", "Roam"];
-const APP_VERSION = window.MLBB_APP_VERSION || "2026.05.06.12";
+const APP_VERSION = window.MLBB_APP_VERSION || "2026.05.06.13";
 const teamRoles = ["Jungle", "EXP", "Mid", "Gold", "Roam"];
 const roleBadges = {
   Любая: { short: "All", label: "Все" },
@@ -969,6 +969,9 @@ const roleDialog = document.querySelector("#roleDialog");
 const roleDialogHero = document.querySelector("#roleDialogHero");
 const roleDialogOptions = document.querySelector("#roleDialogOptions");
 const roleDialogCancel = document.querySelector("#roleDialogCancel");
+const heroProfileDialog = document.querySelector("#heroProfileDialog");
+const heroProfileContent = document.querySelector("#heroProfileContent");
+const heroProfileClose = document.querySelector("#heroProfileClose");
 let imageObserver = null;
 let imageHydrationTimer = null;
 const loadedImageUrls = new Set();
@@ -1146,6 +1149,12 @@ function bindEvents() {
   });
 
   heroGrid.addEventListener("click", (event) => {
+    const infoButton = event.target.closest("[data-info-name]");
+    if (infoButton) {
+      openHeroProfile(infoButton.dataset.infoName);
+      return;
+    }
+
     const tile = event.target.closest(".hero-tile");
     if (!tile || tile.classList.contains("picked")) return;
     addPick(state.activeSide, tile.dataset.name);
@@ -1159,6 +1168,11 @@ function bindEvents() {
     if (!button) return;
     addPick("allyBans", button.dataset.banName);
   });
+  recommendations.addEventListener("click", (event) => {
+    const infoButton = event.target.closest("[data-info-name]");
+    if (!infoButton) return;
+    openHeroProfile(infoButton.dataset.infoName);
+  });
 
   roleDialogOptions.addEventListener("click", (event) => {
     const button = event.target.closest("[data-pick-role]");
@@ -1171,6 +1185,14 @@ function bindEvents() {
   roleDialogCancel.addEventListener("click", () => {
     closeRoleDialog();
     renderHeroGrid();
+  });
+
+  heroProfileClose.addEventListener("click", closeHeroProfile);
+  heroProfileDialog.addEventListener("click", (event) => {
+    if (event.target === heroProfileDialog) closeHeroProfile();
+    const playButton = event.target.closest("[data-play-around]");
+    if (!playButton) return;
+    playAroundHero(playButton.dataset.playAround);
   });
 
   allySlots.addEventListener("click", (event) => {
@@ -1262,6 +1284,34 @@ function openRoleDialog(name) {
 function closeRoleDialog() {
   state.pendingRolePick = null;
   roleDialog.classList.add("hidden");
+}
+
+function openHeroProfile(name) {
+  const hero = heroByName.get(name);
+  if (!hero) return;
+  heroProfileContent.innerHTML = renderHeroProfile(hero);
+  heroProfileDialog.classList.remove("hidden");
+  scheduleImageHydration();
+}
+
+function closeHeroProfile() {
+  heroProfileDialog.classList.add("hidden");
+  heroProfileContent.innerHTML = "";
+}
+
+function playAroundHero(name) {
+  const hero = heroByName.get(name);
+  if (!hero) return;
+
+  if (!isUnavailable(name) && state.allies.length < 5) {
+    addAllyPick(name, hero.roles.find((role) => teamRoles.includes(role)));
+  }
+
+  state.activeSide = "allies";
+  state.focusRole = null;
+  state.role = "Любая";
+  closeHeroProfile();
+  render();
 }
 
 function assignAllySlot(name, selectedRole = null) {
@@ -1399,13 +1449,17 @@ function renderChips(container, side) {
       (name) =>
         `<span class="chip">
           ${renderLazyImage("chip-avatar", name)}
-          ${name}
+          <button class="chip-name" type="button" data-info-name="${name}" aria-label="Профиль ${name}">${name}</button>
           <button type="button" aria-label="Убрать ${name}" data-side="${side}" data-name="${name}">x</button>
         </span>`,
     )
     .join("");
 
   container.querySelectorAll("button").forEach((button) => {
+    if (button.dataset.infoName) {
+      button.addEventListener("click", () => openHeroProfile(button.dataset.infoName));
+      return;
+    }
     button.addEventListener("click", () =>
       removePick(button.dataset.side, button.dataset.name),
     );
@@ -1432,6 +1486,7 @@ function renderHeroGrid() {
 function renderHeroTile(hero, isPicked, isBanned) {
   return `
     <button class="hero-tile ${isPicked ? "picked" : ""} ${isBanned ? "banned" : ""}" type="button" data-name="${hero.name}" ${isPicked ? "disabled" : ""}>
+      <span class="tile-info" role="button" tabindex="0" data-info-name="${hero.name}" aria-label="Профиль ${hero.name}">i</span>
       <span class="hero-avatar">
         ${getHeroInitials(hero.name)}
         ${renderLazyImage("", hero.name)}
@@ -2155,6 +2210,7 @@ function renderHeroCard(item) {
           ${renderLazyImage("card-avatar", hero.name)}
           <h3>${hero.name}</h3>
           <span class="badge">${hero.tier}-tier</span>
+          <button class="profile-link" type="button" data-info-name="${hero.name}">Профиль</button>
         </div>
         <ul class="role-list">${hero.roles.map((role) => `<li>${role}</li>`).join("")}</ul>
         <p class="muted">${hero.notes}</p>
@@ -2205,6 +2261,225 @@ function renderCounterLine(heroName, directCounters, threats) {
       <span>Опасно: ${threatText}</span>
     </div>
   `;
+}
+
+function renderHeroProfile(hero) {
+  const stageProfile = getHeroStageScores(hero);
+  const build = getBuildRecommendation(hero);
+  const matchup = getHeroMatchupProfile(hero);
+  const plan = getHeroGamePlan(hero, build);
+
+  return `
+    <div class="profile-hero-head">
+      ${renderLazyImage("profile-avatar", hero.name)}
+      <div>
+        <h2>${hero.name}</h2>
+        <p>${hero.notes}</p>
+        <ul class="role-list">${hero.roles.map((role) => `<li>${role}</li>`).join("")}</ul>
+      </div>
+    </div>
+    ${renderHeroStageLine(stageProfile)}
+    <div class="profile-actions">
+      <button class="ghost-button" type="button" data-play-around="${hero.name}">
+        Играть вокруг ${hero.name}
+      </button>
+    </div>
+    <div class="profile-grid">
+      ${renderProfileBlock("Кого закрывает", matchup.targets, "good")}
+      ${renderProfileBlock("Опасные враги", matchup.dangers, "bad")}
+      ${renderProfileBlock("Лучшие союзники", matchup.synergies, "neutral")}
+    </div>
+    <div class="profile-section">
+      <h3>Билд под текущих врагов</h3>
+      <p>${build.summary}</p>
+      <div class="build-list">
+        ${build.items.map(renderBuildItem).join("")}
+      </div>
+    </div>
+    <div class="profile-section">
+      <h3>План на игру</h3>
+      <ul class="profile-list">${plan.map((item) => `<li>${item}</li>`).join("")}</ul>
+    </div>
+  `;
+}
+
+function renderProfileBlock(title, items, tone) {
+  const body = items.length
+    ? items.map((item) => `<li>${item}</li>`).join("")
+    : `<li class="empty">Нет точных данных</li>`;
+
+  return `
+    <div class="matchup-group ${tone}">
+      <h4>${title}</h4>
+      <ul>${body}</ul>
+    </div>
+  `;
+}
+
+function renderBuildItem(item, index) {
+  return `
+    <div class="build-item">
+      <strong>${index + 1}. ${item.name}</strong>
+      <span>${item.timing}</span>
+      <p>${item.reason}</p>
+    </div>
+  `;
+}
+
+function getHeroMatchupProfile(hero) {
+  const selectedEnemies = state.enemies.length ? state.enemies : hero.counters.slice(0, 4);
+  const targets = selectedEnemies
+    .filter((enemyName) => getCounterWeight(hero.name, enemyName) || hero.counters.includes(enemyName))
+    .map((enemyName) => explainMatchup(hero.name, enemyName, "good"))
+    .slice(0, 5);
+
+  const dangers = uniqueList([
+    ...hero.weakInto,
+    ...state.enemies.filter((enemyName) => getCounterWeight(enemyName, hero.name)),
+  ])
+    .map((enemyName) => explainMatchup(enemyName, hero.name, "bad"))
+    .slice(0, 5);
+
+  const synergies = hero.synergies
+    .filter((name) => heroByName.has(name))
+    .map((name) => `${name}: усиливает темп и закрывает слабые стороны`)
+    .slice(0, 5);
+
+  return { targets, dangers, synergies };
+}
+
+function explainMatchup(actorName, targetName, tone) {
+  const actor = heroByName.get(actorName);
+  const target = heroByName.get(targetName);
+  const actorRoles = actor?.roles || [];
+  const targetRoles = target?.roles || [];
+
+  if (controlHeroes.has(actorName) || actorRoles.includes("Roam")) {
+    return `${actorName} -> ${targetName}: контроль мешает входу и сбивает темп`;
+  }
+  if (frontlineHeroes.has(targetName) || targetRoles.includes("EXP")) {
+    return `${actorName} -> ${targetName}: хорошо пробивает плотный фронт`;
+  }
+  if (targetRoles.includes("Gold") || targetRoles.includes("Mid")) {
+    return `${actorName} -> ${targetName}: быстро наказывает тонкую backline-позицию`;
+  }
+  if (tone === "bad") {
+    return `${actorName} -> ${targetName}: опасный матчап, лучше закрывать баном или сейвом`;
+  }
+  return `${actorName} -> ${targetName}: хороший ответ по базе контрпиков`;
+}
+
+function getBuildRecommendation(hero) {
+  const archetype = getHeroArchetype(hero);
+  const enemyHeroes = state.enemies.map((name) => heroByName.get(name)).filter(Boolean);
+  const hasHealing = enemyHeroes.some((enemy) => healingHeroes.has(enemy.name));
+  const hasFront = enemyHeroes.filter((enemy) => hasFrontline(enemy)).length >= 2;
+  const hasMagicThreat = enemyHeroes.filter((enemy) => magicDamageHeroes.has(enemy.name)).length >= 2;
+  const hasPhysicalThreat = enemyHeroes.filter((enemy) => !magicDamageHeroes.has(enemy.name)).length >= 3;
+  const hasBurstThreat = enemyHeroes.some((enemy) => ["Saber", "Hayabusa", "Harley", "Gusion", "Julian", "Aamon", "Fanny"].includes(enemy.name));
+
+  const build = getBaseBuild(archetype);
+  const items = [...build.items];
+  const notes = [];
+
+  if (hasHealing) {
+    replaceLateItem(items, archetype === "tank" ? "Dominance Ice" : "Sea Halberd");
+    notes.push("есть anti-heal против лечения/вампиризма");
+  }
+  if (hasFront && ["marksman", "fighter", "assassin"].includes(archetype)) {
+    replaceLateItem(items, archetype === "marksman" ? "Malefic Roar" : "Hunter Strike");
+    notes.push("добавлен пробой против плотного фронта");
+  }
+  if (hasMagicThreat && archetype === "tank") {
+    replaceLateItem(items, "Athena's Shield");
+    notes.push("защита от магического burst");
+  }
+  if (hasPhysicalThreat && archetype === "tank") {
+    replaceLateItem(items, "Antique Cuirass");
+    notes.push("броня против физического урона");
+  }
+  if (hasBurstThreat && archetype !== "tank") {
+    replaceLateItem(items, "Immortality");
+    notes.push("страховка против быстрого убийства");
+  }
+
+  return {
+    summary: notes.length
+      ? `Адаптация: ${uniqueList(notes).join(", ")}.`
+      : "Базовый метовый порядок без жесткой контры от текущих врагов.",
+    items: items.map((name, index) => ({
+      name,
+      timing: getItemTiming(index),
+      reason: getItemReason(name, hero, archetype),
+    })),
+  };
+}
+
+function getHeroArchetype(hero) {
+  if (hero.roles.includes("Roam") || frontlineHeroes.has(hero.name)) return "tank";
+  if (hero.roles.includes("Gold")) return "marksman";
+  if (magicDamageHeroes.has(hero.name)) return "mage";
+  if (hero.roles.includes("Jungle") && !hero.roles.includes("EXP")) return "assassin";
+  return "fighter";
+}
+
+function getBaseBuild(archetype) {
+  const builds = {
+    marksman: ["Swift Boots", "Corrosion Scythe", "Demon Hunter Sword", "Golden Staff", "Malefic Roar", "Immortality"],
+    mage: ["Arcane Boots", "Enchanted Talisman", "Glowing Wand", "Wishing Lantern", "Divine Glaive", "Winter Crown"],
+    assassin: ["Tough Boots", "Sky Piercer", "Hunter Strike", "Blade of Despair", "Malefic Roar", "Immortality"],
+    fighter: ["Warrior Boots", "War Axe", "Hunter Strike", "Brute Force Breastplate", "Queen's Wings", "Immortality"],
+    tank: ["Tough Boots", "Dominance Ice", "Thunder Belt", "Antique Cuirass", "Athena's Shield", "Immortality"],
+  };
+  return { items: builds[archetype] || builds.fighter };
+}
+
+function replaceLateItem(items, itemName) {
+  if (items.includes(itemName)) return;
+  items[Math.max(2, items.length - 2)] = itemName;
+}
+
+function getItemTiming(index) {
+  return [
+    "0:45-1:30",
+    "3:00-4:30",
+    "5:30-7:30",
+    "8:00-10:30",
+    "11:00-14:00",
+    "15:00+",
+  ][index] || "по ситуации";
+}
+
+function getItemReason(itemName, hero, archetype) {
+  if (itemName.includes("Boots")) return "ранний темп, ротации и выживаемость на линии";
+  if (itemName === "Dominance Ice" || itemName === "Sea Halberd") return "режет лечение и реген врагов";
+  if (itemName === "Malefic Roar" || itemName === "Divine Glaive") return "пробивает защиту в мид/лейт стадии";
+  if (itemName === "Immortality" || itemName === "Winter Crown") return "позволяет пережить решающий burst";
+  if (itemName === "Thunder Belt") return "усиливает затяжные драки и контроль фронта";
+  if (itemName === "Wishing Lantern" || itemName === "Glowing Wand") return "сильный poke и урон по плотным целям";
+  if (itemName === "Sky Piercer") return "ускоряет добивание тонких целей в текущей мете";
+  return archetype === "tank"
+    ? "дает плотность для входа и защиты команды"
+    : `усиливает основной урон ${hero.name}`;
+}
+
+function getHeroGamePlan(hero, build) {
+  const stages = getHeroStageScores(hero);
+  const bestStage = [
+    ["старте", stages.early],
+    ["мидгейме", stages.mid],
+    ["лейте", stages.late],
+  ].sort((a, b) => b[1] - a[1])[0][0];
+  const plan = [
+    `Пик сильнее в ${bestStage}: играй вокруг этой стадии.`,
+    `Первый ключевой слот: ${build.items[1]?.name || "первый core-предмет"} к ${build.items[1]?.timing || "4 минуте"}.`,
+  ];
+
+  if (hero.roles.includes("Gold")) plan.push("До 2 предметов не форсируй лишние драки без сейва роама.");
+  if (hero.roles.includes("Jungle")) plan.push("Играй через turtle и быстрый темп после первого core-предмета.");
+  if (hero.roles.includes("Roam")) plan.push("Главная задача: вижен, защита backline и старт драки по ключевой цели.");
+  if (state.enemies.length) plan.push(`Против текущих врагов следи за: ${state.enemies.slice(0, 3).join(", ")}.`);
+  return plan;
 }
 
 init();

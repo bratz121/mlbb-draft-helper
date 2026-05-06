@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MLBB Draft Helper</title>
-    <link rel="stylesheet" href="styles.css?v=20260506-12" />
+    <link rel="stylesheet" href="styles.css?v=20260506-13" />
   </head>
   <body>
     <main class="app-shell">
@@ -16,7 +16,7 @@
         <div class="meta-pill">
           <span>Мета</span>
           <strong>май 2026</strong>
-          <em id="appVersion">v2026.05.06.12</em>
+          <em id="appVersion">v2026.05.06.13</em>
         </div>
       </header>
 
@@ -166,6 +166,15 @@
         </div>
       </div>
 
+      <div id="heroProfileDialog" class="hero-profile-dialog hidden" aria-live="polite">
+        <div class="hero-profile-card">
+          <button id="heroProfileClose" class="profile-close" type="button" aria-label="Закрыть">
+            x
+          </button>
+          <div id="heroProfileContent"></div>
+        </div>
+      </div>
+
       <section class="panel data-panel">
         <div>
           <h2>Как считается рекомендация</h2>
@@ -189,7 +198,7 @@
     </main>
 
     <script>
-      window.MLBB_APP_VERSION = "2026.05.06.12";
+      window.MLBB_APP_VERSION = "2026.05.06.13";
       window.addEventListener("error", function (event) {
         var status = document.getElementById("appStatus");
         if (!status) return;
@@ -205,6 +214,6 @@
         status.className = "app-status warn";
       }, 5000);
     </script>
-    <script src="app.js?v=20260506-12" defer></script>
+    <script src="app.js?v=20260506-13" defer></script>
   </body>
 </html>

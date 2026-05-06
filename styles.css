@@ -462,6 +462,13 @@ button {
   padding: 0;
 }
 
+.chip-name {
+  width: auto;
+  min-height: 22px;
+  color: var(--text);
+  font-size: inherit;
+}
+
 .muted {
   margin: 5px 0 0;
   color: var(--muted);
@@ -629,6 +636,7 @@ button {
 }
 
 .hero-tile {
+  position: relative;
   display: grid;
   gap: 7px;
   min-height: 146px;
@@ -638,6 +646,23 @@ button {
   color: var(--text);
   padding: 9px;
   text-align: left;
+}
+
+.tile-info {
+  position: absolute;
+  right: 7px;
+  top: 7px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 50%;
+  background: rgba(17, 20, 24, 0.82);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 950;
 }
 
 .hero-tile:hover {
@@ -903,6 +928,15 @@ button {
   text-transform: none;
 }
 
+.profile-link {
+  min-height: 30px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--accent);
+  padding: 0 10px;
+  font-size: 12px;
+}
+
 .counter-line {
   display: grid;
   gap: 5px;
@@ -1017,6 +1051,137 @@ button {
   place-items: center;
   background: rgba(7, 9, 12, 0.68);
   padding: 18px;
+}
+
+.hero-profile-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 12;
+  display: grid;
+  place-items: center;
+  background: rgba(7, 9, 12, 0.72);
+  padding: 18px;
+}
+
+.hero-profile-dialog.hidden {
+  display: none;
+}
+
+.hero-profile-card {
+  position: relative;
+  width: min(760px, 100%);
+  max-height: min(88vh, 900px);
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  padding: 18px;
+}
+
+.profile-close {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  width: 32px;
+  min-height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #111418;
+  color: var(--danger);
+  padding: 0;
+}
+
+.profile-hero-head {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 16px;
+  padding-right: 34px;
+}
+
+.profile-avatar {
+  width: 96px;
+  height: 96px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.profile-hero-head h2 {
+  margin-bottom: 8px;
+  font-size: 28px;
+}
+
+.profile-hero-head p,
+.profile-section p {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.profile-actions {
+  margin: 14px 0;
+}
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.profile-section {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.profile-section h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 16px;
+  text-transform: none;
+}
+
+.build-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.build-item {
+  display: grid;
+  gap: 5px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  padding: 10px;
+}
+
+.build-item strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.build-item span {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.build-item p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.profile-list {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
 }
 
 .role-dialog.hidden {
@@ -1387,6 +1552,36 @@ button {
   .role-dialog {
     align-items: end;
     padding: 10px;
+  }
+
+  .hero-profile-dialog {
+    align-items: end;
+    padding: 8px;
+  }
+
+  .hero-profile-card {
+    max-height: 92vh;
+    padding: 14px;
+  }
+
+  .profile-hero-head {
+    grid-template-columns: 70px 1fr;
+    gap: 10px;
+    padding-right: 28px;
+  }
+
+  .profile-avatar {
+    width: 70px;
+    height: 70px;
+  }
+
+  .profile-hero-head h2 {
+    font-size: 22px;
+  }
+
+  .profile-grid,
+  .build-list {
+    grid-template-columns: 1fr;
   }
 
   .role-dialog-card {
