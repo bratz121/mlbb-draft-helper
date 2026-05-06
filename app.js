@@ -1,5 +1,5 @@
 const roles = ["Любая", "Jungle", "EXP", "Mid", "Gold", "Roam"];
-const APP_VERSION = window.MLBB_APP_VERSION || "2026.05.06.5";
+const APP_VERSION = window.MLBB_APP_VERSION || "2026.05.06.6";
 const teamRoles = ["Jungle", "EXP", "Mid", "Gold", "Roam"];
 const roleBadges = {
   Любая: { short: "All", label: "Все" },
@@ -193,13 +193,13 @@ let heroes = [
   },
   {
     name: "Kimmy",
-    roles: ["Gold"],
+    roles: ["Gold", "Mid"],
     tier: "S",
     meta: 93,
     counters: ["Uranus", "Gloo", "Fredrinn", "Minotaur"],
     weakInto: ["Lolita", "Hayabusa", "Julian", "Harley"],
     synergies: ["Angela", "Diggie", "Floryn"],
-    notes: "Темповый голдлейнер против плотного фронта.",
+    notes: "Темповый flex-пик: может идти Gold или Mid против плотного фронта.",
   },
   {
     name: "Granger",
@@ -477,7 +477,7 @@ const supplementalHeroes = [
   ["Moskov", ["Gold"], "B", 76],
   ["Nana", ["Mid"], "C", 68],
   ["Natalia", ["Roam", "Jungle"], "C", 70],
-  ["Natan", ["Gold"], "C", 70],
+  ["Natan", ["Gold", "Mid"], "C", 70],
   ["Nolan", ["Jungle"], "D", 60],
   ["Novaria", ["Mid"], "C", 66],
   ["Obsidia", ["Gold"], "B", 77],
@@ -494,7 +494,7 @@ const supplementalHeroes = [
   ["Suyou", ["Jungle", "EXP"], "S", 89],
   ["Terizla", ["EXP"], "A", 84],
   ["Thamuz", ["EXP"], "B", 76],
-  ["Vale", ["Mid"], "B", 76],
+  ["Vale", ["Mid", "Roam"], "B", 76],
   ["Valentina", ["Mid"], "D", 58],
   ["Vexana", ["Mid"], "B", 76],
   ["Wanwan", ["Gold"], "D", 62],
@@ -1063,6 +1063,12 @@ function bindEvents() {
     state.allies = state.allies.filter((pick) => pick !== name);
     render();
   });
+
+  allySlots.addEventListener("change", (event) => {
+    const select = event.target.closest("[data-role-slot]");
+    if (!select) return;
+    setAllySlot(select.dataset.roleSlot, select.value);
+  });
 }
 
 function addPick(side, name) {
@@ -1093,6 +1099,26 @@ function assignAllySlot(name) {
   if (!hero) return;
   const targetRole = hero.roles.find((role) => teamRoles.includes(role) && !state.allySlots[role]);
   if (targetRole) state.allySlots[targetRole] = name;
+}
+
+function setAllySlot(role, name) {
+  if (!teamRoles.includes(role)) return;
+
+  if (!name) {
+    state.allySlots[role] = null;
+    render();
+    return;
+  }
+
+  const hero = heroByName.get(name);
+  if (!hero || !hero.roles.includes(role)) return;
+
+  teamRoles.forEach((slotRole) => {
+    if (state.allySlots[slotRole] === name) state.allySlots[slotRole] = null;
+  });
+
+  state.allySlots[role] = name;
+  render();
 }
 
 function autoBuildDraft() {
@@ -1216,15 +1242,30 @@ function renderAllySlots() {
   allySlots.innerHTML = teamRoles
     .map((role) => {
       const name = state.allySlots[role];
+      const options = getSlotOptions(role, name);
       return `
         <div class="role-slot">
           <strong>${role}</strong>
-          <span>${name || "свободно"}</span>
+          <select data-role-slot="${role}" aria-label="Выбрать героя на ${role}">
+            <option value="">свободно</option>
+            ${options
+              .map(
+                (optionName) =>
+                  `<option value="${optionName}" ${optionName === name ? "selected" : ""}>${optionName}</option>`,
+              )
+              .join("")}
+          </select>
           ${name ? `<button type="button" data-clear-role="${role}" aria-label="Очистить ${role}">x</button>` : "<em>-</em>"}
         </div>
       `;
     })
     .join("");
+}
+
+function getSlotOptions(role, currentName) {
+  return state.allies
+    .filter((name) => name === currentName || heroByName.get(name)?.roles.includes(role))
+    .sort((a, b) => a.localeCompare(b));
 }
 
 function getHeroImageUrl(name) {
@@ -1524,9 +1565,13 @@ function calculateSynergyDelta(allies) {
 
 function calculateRoleCoverage(allies) {
   const covered = new Set();
-  allies.forEach((name) =>
-    heroByName.get(name)?.roles.forEach((role) => covered.add(role)),
-  );
+  Object.entries(state.allySlots).forEach(([role, name]) => {
+    if (name && allies.includes(name)) covered.add(role);
+  });
+  allies.forEach((name) => {
+    const assigned = Object.values(state.allySlots).includes(name);
+    if (!assigned) heroByName.get(name)?.roles.forEach((role) => covered.add(role));
+  });
   const keyRoles = ["Jungle", "EXP", "Mid", "Gold", "Roam"];
   return (
     keyRoles.filter((role) => covered.has(role)).length * 0.9 -
