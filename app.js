@@ -1,5 +1,5 @@
 const roles = ["Любая", "Jungle", "EXP", "Mid", "Gold", "Roam"];
-const APP_VERSION = window.MLBB_APP_VERSION || "2026.05.06.14";
+const APP_VERSION = window.MLBB_APP_VERSION || "2026.05.06.15";
 const teamRoles = ["Jungle", "EXP", "Mid", "Gold", "Roam"];
 const roleBadges = {
   Любая: { short: "All", label: "Все" },
@@ -1227,12 +1227,23 @@ function bindEvents() {
   heroProfileClose.addEventListener("click", closeHeroProfile);
   heroProfileDialog.addEventListener("click", (event) => {
     if (event.target === heroProfileDialog) closeHeroProfile();
+    const buildButton = event.target.closest("[data-build-name]");
+    if (buildButton) {
+      openHeroBuild(buildButton.dataset.buildName);
+      return;
+    }
     const playButton = event.target.closest("[data-play-around]");
     if (!playButton) return;
     playAroundHero(playButton.dataset.playAround);
   });
 
   allySlots.addEventListener("click", (event) => {
+    const buildName = event.target.closest("[data-slot-build]")?.dataset.slotBuild;
+    if (buildName) {
+      openHeroBuild(buildName);
+      return;
+    }
+
     const suggestRole = event.target.closest("[data-suggest-role]")?.dataset.suggestRole;
     if (suggestRole) {
       focusRecommendationsForRole(suggestRole);
@@ -1329,6 +1340,13 @@ function openHeroProfile(name) {
   heroProfileContent.innerHTML = renderHeroProfile(hero);
   heroProfileDialog.classList.remove("hidden");
   scheduleImageHydration();
+}
+
+function openHeroBuild(name) {
+  const hero = heroByName.get(name);
+  if (!hero) return;
+  heroProfileContent.innerHTML = renderHeroBuildModal(hero);
+  heroProfileDialog.classList.remove("hidden");
 }
 
 function closeHeroProfile() {
@@ -1487,6 +1505,7 @@ function renderChips(container, side) {
         `<span class="chip">
           ${renderLazyImage("chip-avatar", name)}
           <button class="chip-name" type="button" data-info-name="${name}" aria-label="Профиль ${name}">${name}</button>
+          ${side === "allies" ? `<button class="chip-build" type="button" data-build-name="${name}" aria-label="Билд ${name}">Билд</button>` : ""}
           <button type="button" aria-label="Убрать ${name}" data-side="${side}" data-name="${name}">x</button>
         </span>`,
     )
@@ -1495,6 +1514,10 @@ function renderChips(container, side) {
   container.querySelectorAll("button").forEach((button) => {
     if (button.dataset.infoName) {
       button.addEventListener("click", () => openHeroProfile(button.dataset.infoName));
+      return;
+    }
+    if (button.dataset.buildName) {
+      button.addEventListener("click", () => openHeroBuild(button.dataset.buildName));
       return;
     }
     button.addEventListener("click", () =>
@@ -1557,6 +1580,7 @@ function renderAllySlots() {
           <button class="slot-suggest" type="button" data-suggest-role="${role}" aria-label="Подобрать героя на ${role}">
             Подбор
           </button>
+          ${name ? `<button class="slot-build" type="button" data-slot-build="${name}" aria-label="Открыть билд ${name}">Билд</button>` : ""}
           ${name ? `<button class="slot-clear" type="button" data-clear-role="${role}" aria-label="Очистить ${role}">x</button>` : ""}
         </div>
       `;
@@ -2320,6 +2344,9 @@ function renderHeroProfile(hero) {
       <button class="ghost-button" type="button" data-play-around="${hero.name}">
         Играть вокруг ${hero.name}
       </button>
+      <button class="ghost-button" type="button" data-build-name="${hero.name}">
+        Сборка против пика
+      </button>
     </div>
     <div class="profile-grid">
       ${renderProfileBlock("Кого закрывает", matchup.targets, "good")}
@@ -2337,6 +2364,39 @@ function renderHeroProfile(hero) {
     <div class="profile-section">
       <h3>План на игру</h3>
       <ul class="profile-list">${plan.map((item) => `<li>${item}</li>`).join("")}</ul>
+    </div>
+  `;
+}
+
+function renderHeroBuildModal(hero) {
+  const build = getBuildRecommendation(hero);
+  const threats = state.enemies.length
+    ? state.enemies.join(", ")
+    : "враги еще не выбраны";
+
+  return `
+    <div class="profile-hero-head">
+      ${renderLazyImage("profile-avatar", hero.name)}
+      <div>
+        <h2>Сборка: ${hero.name}</h2>
+        <p>Считаю под текущий пик противников: ${threats}.</p>
+        <ul class="role-list">${hero.roles.map((role) => `<li>${role}</li>`).join("")}</ul>
+      </div>
+    </div>
+    <div class="profile-section build-focus">
+      <h3>Предметы и тайминги</h3>
+      <p>${build.summary}</p>
+      <div class="build-list">
+        ${build.items.map(renderBuildItem).join("")}
+      </div>
+    </div>
+    <div class="profile-section">
+      <h3>Как читать сборку</h3>
+      <ul class="profile-list">
+        <li>Если враги изменились, закрой окно и открой билд заново — он пересчитается.</li>
+        <li>Anti-heal появляется против лечения и сильного вампиризма.</li>
+        <li>Пробой и защитные предметы подставляются против плотного фронта или burst-угроз.</li>
+      </ul>
     </div>
   `;
 }
