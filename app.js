@@ -1,5 +1,5 @@
 const roles = ["Любая", "Jungle", "EXP", "Mid", "Gold", "Roam"];
-const APP_VERSION = window.MLBB_APP_VERSION || "2026.05.06.15";
+const APP_VERSION = window.MLBB_APP_VERSION || "2026.05.06.16";
 const teamRoles = ["Jungle", "EXP", "Mid", "Gold", "Roam"];
 const roleBadges = {
   Любая: { short: "All", label: "Все" },
@@ -104,11 +104,19 @@ const itemCatalog = {
   "Tough Boots": { ru: "Стойкие сапоги", slug: "tough-boots" },
   "Warrior Boots": { ru: "Сапоги воина", slug: "warrior-boots" },
   "Arcane Boots": { ru: "Магические сапоги", slug: "arcane-boots" },
+  "Bloodlust Axe": { ru: "Топор кровожадности", slug: "bloodlust-axe" },
   "Corrosion Scythe": { ru: "Коррозийная коса", slug: "corrosion-scythe" },
   "Demon Hunter Sword": { ru: "Меч охотника на демонов", slug: "demon-hunter-sword" },
   "Golden Staff": { ru: "Золотой посох", slug: "golden-staff" },
   "Malefic Roar": { ru: "Злобный рык", slug: "malefic-roar" },
   Immortality: { ru: "Бессмертие", slug: "immortality" },
+  Oracle: { ru: "Оракул", slug: "oracle" },
+  "Radiant Armor": { ru: "Сияющая броня", slug: "radiant-armor" },
+  "Rose Gold Meteor": { ru: "Метеор розового золота", slug: "rose-gold-meteor" },
+  "Wind of Nature": { ru: "Ветер природы", slug: "wind-of-nature" },
+  "Ice Queen Wand": { ru: "Жезл ледяной королевы", slug: "ice-queen-wand" },
+  "Holy Crystal": { ru: "Святой кристалл", slug: "holy-crystal" },
+  "Genius Wand": { ru: "Гениальный жезл", slug: "genius-wand" },
   "Enchanted Talisman": { ru: "Зачарованный талисман", slug: "enchanted-talisman" },
   "Glowing Wand": { ru: "Пылающий жезл", slug: "glowing-wand" },
   "Wishing Lantern": { ru: "Фонарь желаний", slug: "wishing-lantern" },
@@ -955,6 +963,81 @@ const currentHeroIntel = {
     allies: ["Tigreal", "Atlas", "Angela", "Floryn", "Minotaur"],
     dangers: ["Baxia", "Valir", "Karrie", "X.Borg"],
     source: "MLBB.io hero guide + текущая локальная контр-база",
+  },
+};
+
+const proBuildProfiles = {
+  Alpha: {
+    source: "MLBBHub Alpha build, обновлено 13 апреля 2026; сверено с MLBB.io hero/build паттернами",
+    core: ["Bloodlust Axe", "Warrior Boots", "War Axe"],
+    defaultLate: ["Blade of Despair", "Queen's Wings", "Immortality"],
+    situations: {
+      antiHeal: "Sea Halberd",
+      tankFront: "Malefic Roar",
+      mobileBackline: "Hunter Strike",
+      physicalBurst: "Antique Cuirass",
+      magicBurst: "Athena's Shield",
+      sustainDuel: "Oracle",
+    },
+  },
+  marksman: {
+    source: "MLBB.io item-build/pro-build patterns: attack speed core + defensive last slot",
+    core: ["Swift Boots", "Corrosion Scythe", "Demon Hunter Sword"],
+    defaultLate: ["Golden Staff", "Malefic Roar", "Wind of Nature"],
+    situations: {
+      antiHeal: "Sea Halberd",
+      tankFront: "Malefic Roar",
+      physicalBurst: "Wind of Nature",
+      magicBurst: "Rose Gold Meteor",
+      lateSafety: "Immortality",
+    },
+  },
+  mage: {
+    source: "MLBB.io item-build/pro-build patterns: mana or poke core into magic penetration",
+    core: ["Arcane Boots", "Enchanted Talisman", "Glowing Wand"],
+    defaultLate: ["Wishing Lantern", "Divine Glaive", "Winter Crown"],
+    situations: {
+      tankFront: "Divine Glaive",
+      chase: "Ice Queen Wand",
+      burst: "Holy Crystal",
+      earlyPen: "Genius Wand",
+      lateSafety: "Winter Crown",
+    },
+  },
+  assassin: {
+    source: "MLBB.io high-rank/pro-build patterns: execute snowball into penetration and safety",
+    core: ["Tough Boots", "Sky Piercer", "Hunter Strike"],
+    defaultLate: ["Blade of Despair", "Malefic Roar", "Immortality"],
+    situations: {
+      antiHeal: "Sea Halberd",
+      tankFront: "Malefic Roar",
+      magicBurst: "Rose Gold Meteor",
+      lateSafety: "Immortality",
+    },
+  },
+  fighter: {
+    source: "MLBB.io/MLBBHub fighter patterns: War Axe core, then bruiser defense by enemy damage",
+    core: ["Warrior Boots", "War Axe", "Hunter Strike"],
+    defaultLate: ["Brute Force Breastplate", "Queen's Wings", "Immortality"],
+    situations: {
+      antiHeal: "Sea Halberd",
+      tankFront: "Malefic Roar",
+      physicalBurst: "Antique Cuirass",
+      magicBurst: "Athena's Shield",
+      sustainDuel: "Oracle",
+    },
+  },
+  tank: {
+    source: "MLBB.io tank build patterns: anti-heal and mixed defense adjusted by enemy damage profile",
+    core: ["Tough Boots", "Dominance Ice", "Thunder Belt"],
+    defaultLate: ["Antique Cuirass", "Athena's Shield", "Immortality"],
+    situations: {
+      antiHeal: "Dominance Ice",
+      physicalBurst: "Antique Cuirass",
+      magicBurst: "Athena's Shield",
+      magicDps: "Radiant Armor",
+      lateSafety: "Immortality",
+    },
   },
 };
 
@@ -2357,6 +2440,7 @@ function renderHeroProfile(hero) {
     <div class="profile-section">
       <h3>Билд под текущих врагов</h3>
       <p>${build.summary}</p>
+      <p class="profile-source">Основа сборки: ${build.source}</p>
       <div class="build-list">
         ${build.items.map(renderBuildItem).join("")}
       </div>
@@ -2386,6 +2470,7 @@ function renderHeroBuildModal(hero) {
     <div class="profile-section build-focus">
       <h3>Предметы и тайминги</h3>
       <p>${build.summary}</p>
+      <p class="profile-source">Основа сборки: ${build.source}</p>
       <div class="build-list">
         ${build.items.map(renderBuildItem).join("")}
       </div>
@@ -2573,46 +2658,53 @@ function explainSynergy(hero, ally) {
 function getBuildRecommendation(hero) {
   const archetype = getHeroArchetype(hero);
   const enemyHeroes = state.enemies.map((name) => heroByName.get(name)).filter(Boolean);
-  const hasHealing = enemyHeroes.some((enemy) => healingHeroes.has(enemy.name));
-  const hasFront = enemyHeroes.filter((enemy) => hasFrontline(enemy)).length >= 2;
-  const hasMagicThreat = enemyHeroes.filter((enemy) => magicDamageHeroes.has(enemy.name)).length >= 2;
-  const hasPhysicalThreat = enemyHeroes.filter((enemy) => !magicDamageHeroes.has(enemy.name)).length >= 3;
-  const hasBurstThreat = enemyHeroes.some((enemy) => ["Saber", "Hayabusa", "Harley", "Gusion", "Julian", "Aamon", "Fanny"].includes(enemy.name));
-
-  const build = getBaseBuild(archetype);
-  const items = [...build.items];
+  const situation = getEnemyBuildSituation(enemyHeroes);
+  const profile = proBuildProfiles[hero.name] || proBuildProfiles[archetype] || getBaseBuild(archetype);
+  const items = [...profile.core, ...profile.defaultLate];
   const notes = [];
+  const applySituation = (condition, key, note) => {
+    const item = profile.situations?.[key];
+    if (!condition || !item) return;
+    placeSituationalItem(items, item);
+    notes.push(note);
+  };
 
-  if (hasHealing) {
-    replaceLateItem(items, archetype === "tank" ? "Dominance Ice" : "Sea Halberd");
-    notes.push("есть anti-heal против лечения/вампиризма");
-  }
-  if (hasFront && ["marksman", "fighter", "assassin"].includes(archetype)) {
-    replaceLateItem(items, archetype === "marksman" ? "Malefic Roar" : "Hunter Strike");
-    notes.push("добавлен пробой против плотного фронта");
-  }
-  if (hasMagicThreat && archetype === "tank") {
-    replaceLateItem(items, "Athena's Shield");
-    notes.push("защита от магического burst");
-  }
-  if (hasPhysicalThreat && archetype === "tank") {
-    replaceLateItem(items, "Antique Cuirass");
-    notes.push("броня против физического урона");
-  }
-  if (hasBurstThreat && archetype !== "tank") {
-    replaceLateItem(items, "Immortality");
-    notes.push("страховка против быстрого убийства");
-  }
+  applySituation(situation.hasHealing, "antiHeal", "anti-heal против лечения/вампиризма");
+  applySituation(situation.hasFront, "tankFront", "пробой против плотного фронта");
+  applySituation(situation.hasMobileBackline, "mobileBackline", "ускоренный заход в мобильную backline");
+  applySituation(situation.hasPhysicalBurst, "physicalBurst", "защита от физического burst");
+  applySituation(situation.hasMagicBurst, "magicBurst", "защита от магического burst");
+  applySituation(situation.hasMagicDps, "magicDps", "защита от продолжительного магического урона");
+  applySituation(situation.needsSafety, "lateSafety", "страховка для решающего лейт-файта");
+  applySituation(hero.name === "Alpha" && situation.hasFront, "sustainDuel", "больше sustain в затяжных дуэлях");
 
   return {
     summary: notes.length
       ? `Адаптация: ${uniqueList(notes).join(", ")}.`
-      : "Базовый метовый порядок без жесткой контры от текущих врагов.",
+      : "Pro-inspired базовый порядок без жесткой контры от текущих врагов.",
+    source: profile.source,
     items: items.map((name, index) => ({
       id: name,
       timing: getItemTiming(index),
       reason: getItemReason(name, hero, archetype),
     })),
+  };
+}
+
+function getEnemyBuildSituation(enemyHeroes) {
+  const magicCount = enemyHeroes.filter((enemy) => magicDamageHeroes.has(enemy.name)).length;
+  const physicalCount = enemyHeroes.length - magicCount;
+  const burstNames = ["Saber", "Hayabusa", "Harley", "Gusion", "Julian", "Aamon", "Fanny", "Eudora", "Kadita"];
+  const mobileBacklineNames = ["Pharsa", "Yve", "Kimmy", "Granger", "Karrie", "Wanwan", "Claude", "Natan"];
+
+  return {
+    hasHealing: enemyHeroes.some((enemy) => healingHeroes.has(enemy.name) || ["Uranus", "Ruby", "Alpha", "Alice", "Estes", "Floryn", "Angela"].includes(enemy.name)),
+    hasFront: enemyHeroes.filter((enemy) => hasFrontline(enemy)).length >= 2,
+    hasPhysicalBurst: physicalCount >= 3 || enemyHeroes.some((enemy) => ["Saber", "Hayabusa", "Fanny", "Lancelot", "Ling"].includes(enemy.name)),
+    hasMagicBurst: magicCount >= 2 || enemyHeroes.some((enemy) => ["Harley", "Gusion", "Julian", "Aamon", "Eudora", "Kadita"].includes(enemy.name)),
+    hasMagicDps: enemyHeroes.some((enemy) => ["Chang'e", "Valir", "Yve", "Zhuxin", "Lylia", "Cecilion"].includes(enemy.name)),
+    hasMobileBackline: enemyHeroes.some((enemy) => mobileBacklineNames.includes(enemy.name)),
+    needsSafety: enemyHeroes.length >= 4 || enemyHeroes.some((enemy) => burstNames.includes(enemy.name)),
   };
 }
 
@@ -2635,7 +2727,7 @@ function getBaseBuild(archetype) {
   return { items: builds[archetype] || builds.fighter };
 }
 
-function replaceLateItem(items, itemName) {
+function placeSituationalItem(items, itemName) {
   if (items.includes(itemName)) return;
   items[Math.max(2, items.length - 2)] = itemName;
 }
