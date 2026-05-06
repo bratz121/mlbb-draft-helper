@@ -1,5 +1,5 @@
 const roles = ["Любая", "Jungle", "EXP", "Mid", "Gold", "Roam"];
-const APP_VERSION = window.MLBB_APP_VERSION || "2026.05.06.16";
+const APP_VERSION = window.MLBB_APP_VERSION || "2026.05.06.17";
 const teamRoles = ["Jungle", "EXP", "Mid", "Gold", "Roam"];
 const roleBadges = {
   Любая: { short: "All", label: "Все" },
@@ -114,9 +114,21 @@ const itemCatalog = {
   "Radiant Armor": { ru: "Сияющая броня", slug: "radiant-armor" },
   "Rose Gold Meteor": { ru: "Метеор розового золота", slug: "rose-gold-meteor" },
   "Wind of Nature": { ru: "Ветер природы", slug: "wind-of-nature" },
+  Windtalker: { ru: "Говорящий с ветром", slug: "windtalker" },
+  "Berserker's Fury": { ru: "Ярость берсерка", slug: "berserkers-fury" },
+  "Haas's Claws": { ru: "Когти Хааса", slug: "haass-claws" },
+  "Endless Battle": { ru: "Бесконечная битва", slug: "endless-battle" },
+  "Blade of the Heptaseas": { ru: "Клинок семи морей", slug: "blade-of-the-heptaseas" },
   "Ice Queen Wand": { ru: "Жезл ледяной королевы", slug: "ice-queen-wand" },
   "Holy Crystal": { ru: "Святой кристалл", slug: "holy-crystal" },
   "Genius Wand": { ru: "Гениальный жезл", slug: "genius-wand" },
+  "Lightning Truncheon": { ru: "Молниеносный жезл", slug: "lightning-truncheon" },
+  "Clock of Destiny": { ru: "Часы судьбы", slug: "clock-of-destiny" },
+  "Concentrated Energy": { ru: "Концентрированная энергия", slug: "concentrated-energy" },
+  "Demon Shoes": { ru: "Демонические ботинки", slug: "demon-shoes" },
+  "Flask of the Oasis": { ru: "Фляга оазиса", slug: "flask-of-the-oasis" },
+  "Fleeting Time": { ru: "Мимолетное время", slug: "fleeting-time" },
+  "Necklace of Durance": { ru: "Ожерелье заточения", slug: "necklace-of-durance" },
   "Enchanted Talisman": { ru: "Зачарованный талисман", slug: "enchanted-talisman" },
   "Glowing Wand": { ru: "Пылающий жезл", slug: "glowing-wand" },
   "Wishing Lantern": { ru: "Фонарь желаний", slug: "wishing-lantern" },
@@ -1039,6 +1051,74 @@ const proBuildProfiles = {
       lateSafety: "Immortality",
     },
   },
+  critMarksman: {
+    source: "MLBB.io/pro marksman patterns: crit core, Wind of Nature/Rose Gold defensive swap",
+    core: ["Swift Boots", "Windtalker", "Berserker's Fury"],
+    defaultLate: ["Haas's Claws", "Malefic Roar", "Wind of Nature"],
+    situations: {
+      antiHeal: "Sea Halberd",
+      tankFront: "Malefic Roar",
+      physicalBurst: "Wind of Nature",
+      magicBurst: "Rose Gold Meteor",
+      lateSafety: "Immortality",
+    },
+  },
+  burstMage: {
+    source: "MLBB.io/pro mage patterns: penetration and burst window into safety",
+    core: ["Arcane Boots", "Genius Wand", "Lightning Truncheon"],
+    defaultLate: ["Holy Crystal", "Divine Glaive", "Winter Crown"],
+    situations: {
+      tankFront: "Divine Glaive",
+      magicDps: "Glowing Wand",
+      chase: "Ice Queen Wand",
+      lateSafety: "Winter Crown",
+    },
+  },
+  sustainMage: {
+    source: "MLBB.io/pro sustain mage patterns: scaling mana/HP into continuous damage",
+    core: ["Arcane Boots", "Clock of Destiny", "Concentrated Energy"],
+    defaultLate: ["Glowing Wand", "Divine Glaive", "Winter Crown"],
+    situations: {
+      tankFront: "Divine Glaive",
+      magicDps: "Glowing Wand",
+      lateSafety: "Winter Crown",
+    },
+  },
+  support: {
+    source: "MLBB.io/pro roam support patterns: utility core, anti-heal and safety by draft",
+    core: ["Tough Boots", "Flask of the Oasis", "Fleeting Time"],
+    defaultLate: ["Dominance Ice", "Athena's Shield", "Immortality"],
+    situations: {
+      antiHeal: "Dominance Ice",
+      physicalBurst: "Antique Cuirass",
+      magicBurst: "Athena's Shield",
+      magicDps: "Radiant Armor",
+      lateSafety: "Immortality",
+    },
+  },
+  burstAssassin: {
+    source: "MLBB.io/pro assassin patterns: early kill pressure into penetration",
+    core: ["Tough Boots", "Sky Piercer", "Blade of the Heptaseas"],
+    defaultLate: ["Hunter Strike", "Blade of Despair", "Immortality"],
+    situations: {
+      antiHeal: "Sea Halberd",
+      tankFront: "Malefic Roar",
+      magicBurst: "Rose Gold Meteor",
+      lateSafety: "Immortality",
+    },
+  },
+  sustainFighter: {
+    source: "MLBBHub/MLBB.io fighter patterns: sustain core into bruiser defense",
+    core: ["Warrior Boots", "Bloodlust Axe", "War Axe"],
+    defaultLate: ["Hunter Strike", "Queen's Wings", "Immortality"],
+    situations: {
+      antiHeal: "Sea Halberd",
+      tankFront: "Malefic Roar",
+      physicalBurst: "Antique Cuirass",
+      magicBurst: "Athena's Shield",
+      sustainDuel: "Oracle",
+    },
+  },
 };
 
 applyCounterChart();
@@ -1058,6 +1138,7 @@ const state = {
 };
 
 const heroByName = new Map(heroes.map((hero) => [hero.name, hero]));
+applyHeroBuildProfiles();
 const localHeroPortraits = Object.fromEntries(
   heroes.map((hero) => {
     const remoteUrl = heroPortraits[hero.name] || "";
@@ -1192,6 +1273,127 @@ function applyCounterChart() {
         enemy.weakInto.push(counterName);
     });
   });
+}
+
+function applyHeroBuildProfiles() {
+  heroes.forEach((hero) => {
+    if (proBuildProfiles[hero.name]) return;
+    const key = getHeroBuildProfileKey(hero);
+    const base = proBuildProfiles[key] || proBuildProfiles[getHeroArchetype(hero)] || proBuildProfiles.fighter;
+    proBuildProfiles[hero.name] = createHeroBuildProfile(hero, key, base);
+  });
+}
+
+function getHeroBuildProfileKey(hero) {
+  const name = hero.name;
+
+  if (["Angela", "Floryn", "Estes", "Rafaela", "Diggie", "Mathilda"].includes(name)) return "support";
+  if (["Tigreal", "Atlas", "Khufra", "Minotaur", "Lolita", "Belerick", "Hylos", "Franco", "Johnson", "Gatotkaca", "Edith", "Baxia", "Akai", "Grock"].includes(name)) return "tank";
+  if (["Miya", "Layla", "Lesley", "Irithel", "Bruno", "Clint", "Brody", "Beatrix", "Hanabi", "Melissa", "Ixia"].includes(name)) return "critMarksman";
+  if (["Karrie", "Claude", "Wanwan", "Moskov", "Natan", "Kimmy", "Granger", "Popol and Kupa"].includes(name)) return "marksman";
+  if (["Eudora", "Kadita", "Kagura", "Aurora", "Vale", "Valentina", "Harley", "Gusion", "Aamon", "Lunox"].includes(name)) return "burstMage";
+  if (["Alice", "Esmeralda", "Cecilion", "Cyclops", "Harith", "Lylia", "Zhask", "Yve", "Pharsa", "Xavier", "Valir", "Vexana", "Luo Yi", "Novaria", "Odette", "Zhuxin", "Zetian", "Nana"].includes(name)) return "mage";
+  if (["Fanny", "Hayabusa", "Ling", "Lancelot", "Natalia", "Saber", "Helcurt", "Karina", "Nolan", "Selena"].includes(name)) return "burstAssassin";
+  if (["Alpha", "Ruby", "Yu Zhong", "Terizla", "Thamuz", "Uranus", "X.Borg", "Fredrinn", "Arlott", "Sora", "Gloo", "Barats"].includes(name)) return "sustainFighter";
+  if (["Chou", "Paquito", "Benedetta", "Dyrroth", "Khaleed", "Lapu-Lapu", "Guinevere", "Jawhead", "Martis", "Masha", "Roger", "Suyou"].includes(name)) return "fighter";
+  if (hero.roles.includes("Roam")) return "support";
+  if (hero.roles.includes("Gold")) return "marksman";
+  if (magicDamageHeroes.has(name)) return "mage";
+  if (hero.roles.includes("Jungle")) return "burstAssassin";
+  return "fighter";
+}
+
+function createHeroBuildProfile(hero, key, base) {
+  const profile = {
+    source: `${base.source}; персональный профиль для ${hero.name}`,
+    core: [...base.core],
+    defaultLate: [...base.defaultLate],
+    situations: { ...base.situations },
+  };
+  const name = hero.name;
+
+  if (trueDamageHeroes.has(name) && hero.roles.includes("Gold")) {
+    profile.core = ["Swift Boots", "Corrosion Scythe", "Demon Hunter Sword"];
+    profile.defaultLate = ["Golden Staff", "Malefic Roar", "Wind of Nature"];
+  }
+
+  if (["Lesley", "Clint", "Brody", "Granger"].includes(name)) {
+    profile.core = ["Swift Boots", "Endless Battle", "Blade of Despair"];
+    profile.defaultLate = ["Malefic Roar", "Wind of Nature", "Immortality"];
+  }
+
+  if (["Claude", "Wanwan", "Moskov", "Popol and Kupa"].includes(name)) {
+    profile.core = ["Swift Boots", "Corrosion Scythe", "Demon Hunter Sword"];
+    profile.defaultLate = ["Golden Staff", "Malefic Roar", "Wind of Nature"];
+  }
+
+  if (name === "Kimmy") {
+    profile.core = ["Arcane Boots", "Genius Wand", "Ice Queen Wand"];
+    profile.defaultLate = ["Glowing Wand", "Divine Glaive", "Winter Crown"];
+  }
+
+  if (["Fanny", "Ling", "Lancelot", "Hayabusa", "Nolan", "Suyou"].includes(name)) {
+    profile.core = ["Tough Boots", "Sky Piercer", "Hunter Strike"];
+    profile.defaultLate = ["Blade of Despair", "Malefic Roar", "Immortality"];
+  }
+
+  if (["Harley", "Gusion", "Aamon", "Karina", "Julian"].includes(name)) {
+    profile.core = ["Arcane Boots", "Genius Wand", "Sky Piercer"];
+    profile.defaultLate = ["Holy Crystal", "Divine Glaive", "Winter Crown"];
+  }
+
+  if (["Cecilion", "Xavier", "Zhask", "Zetian"].includes(name)) {
+    profile.core = ["Demon Shoes", "Clock of Destiny", "Lightning Truncheon"];
+    profile.defaultLate = ["Holy Crystal", "Divine Glaive", "Winter Crown"];
+  }
+
+  if (["Valir", "Yve", "Lylia", "Zhuxin", "Pharsa", "Novaria"].includes(name)) {
+    profile.core = ["Arcane Boots", "Enchanted Talisman", "Ice Queen Wand"];
+    profile.defaultLate = ["Glowing Wand", "Divine Glaive", "Winter Crown"];
+  }
+
+  if (["Alice", "Esmeralda", "Harith", "Cyclops"].includes(name)) {
+    profile.core = ["Arcane Boots", "Clock of Destiny", "Concentrated Energy"];
+    profile.defaultLate = ["Oracle", "Divine Glaive", "Winter Crown"];
+  }
+
+  if (["Alpha", "Ruby", "Yu Zhong", "Terizla", "Thamuz", "X.Borg", "Sora"].includes(name)) {
+    profile.core = ["Warrior Boots", "Bloodlust Axe", "War Axe"];
+    profile.defaultLate = ["Hunter Strike", "Queen's Wings", "Immortality"];
+  }
+
+  if (["Aldous", "Argus", "Aulus", "Sun", "Zilong", "Masha", "Roger"].includes(name)) {
+    profile.core = ["Swift Boots", "Corrosion Scythe", "Demon Hunter Sword"];
+    profile.defaultLate = ["Golden Staff", "Malefic Roar", "Immortality"];
+  }
+
+  if (["Chou", "Paquito", "Benedetta", "Dyrroth", "Khaleed", "Lapu-Lapu", "Jawhead", "Martis", "Silvanna"].includes(name)) {
+    profile.core = ["Warrior Boots", "War Axe", "Hunter Strike"];
+    profile.defaultLate = ["Queen's Wings", "Malefic Roar", "Immortality"];
+  }
+
+  if (["Angela", "Floryn", "Estes", "Rafaela", "Mathilda"].includes(name)) {
+    profile.core = ["Tough Boots", "Flask of the Oasis", "Fleeting Time"];
+    profile.defaultLate = ["Necklace of Durance", "Athena's Shield", "Immortality"];
+  }
+
+  if (["Diggie", "Kaja", "Minsitthar"].includes(name)) {
+    profile.core = ["Tough Boots", "Dominance Ice", "Fleeting Time"];
+    profile.defaultLate = ["Athena's Shield", "Immortality", "Antique Cuirass"];
+  }
+
+  if (["Tigreal", "Atlas", "Khufra", "Minotaur", "Lolita", "Belerick", "Hylos", "Franco", "Johnson", "Gatotkaca", "Edith", "Grock"].includes(name)) {
+    profile.core = ["Tough Boots", "Dominance Ice", "Thunder Belt"];
+    profile.defaultLate = ["Antique Cuirass", "Athena's Shield", "Immortality"];
+  }
+
+  if (["Baxia", "Akai", "Fredrinn", "Barats", "Gloo", "Uranus"].includes(name)) {
+    profile.core = ["Tough Boots", "Thunder Belt", "Dominance Ice"];
+    profile.defaultLate = ["Oracle", "Radiant Armor", "Immortality"];
+  }
+
+  profile.source = `${profile.source}; тип: ${key}`;
+  return profile;
 }
 
 function renderRoleFilter() {
@@ -2718,13 +2920,19 @@ function getHeroArchetype(hero) {
 
 function getBaseBuild(archetype) {
   const builds = {
-    marksman: ["Swift Boots", "Corrosion Scythe", "Demon Hunter Sword", "Golden Staff", "Malefic Roar", "Immortality"],
-    mage: ["Arcane Boots", "Enchanted Talisman", "Glowing Wand", "Wishing Lantern", "Divine Glaive", "Winter Crown"],
-    assassin: ["Tough Boots", "Sky Piercer", "Hunter Strike", "Blade of Despair", "Malefic Roar", "Immortality"],
-    fighter: ["Warrior Boots", "War Axe", "Hunter Strike", "Brute Force Breastplate", "Queen's Wings", "Immortality"],
-    tank: ["Tough Boots", "Dominance Ice", "Thunder Belt", "Antique Cuirass", "Athena's Shield", "Immortality"],
+    marksman: proBuildProfiles.marksman,
+    mage: proBuildProfiles.mage,
+    assassin: proBuildProfiles.assassin,
+    fighter: proBuildProfiles.fighter,
+    tank: proBuildProfiles.tank,
   };
-  return { items: builds[archetype] || builds.fighter };
+  const base = builds[archetype] || builds.fighter;
+  return {
+    source: `${base.source}; fallback-профиль`,
+    core: [...base.core],
+    defaultLate: [...base.defaultLate],
+    situations: { ...base.situations },
+  };
 }
 
 function placeSituationalItem(items, itemName) {
@@ -2748,6 +2956,18 @@ function getItemReason(itemName, hero, archetype) {
   if (itemName === "Dominance Ice" || itemName === "Sea Halberd") return "режет лечение и реген врагов";
   if (itemName === "Malefic Roar" || itemName === "Divine Glaive") return "пробивает защиту в мид/лейт стадии";
   if (itemName === "Immortality" || itemName === "Winter Crown") return "позволяет пережить решающий burst";
+  if (itemName === "Bloodlust Axe" || itemName === "Concentrated Energy") return "дает sustain, чтобы дольше драться без выхода с карты";
+  if (itemName === "War Axe" || itemName === "Brute Force Breastplate") return "набирает ценность в длинных драках и при постоянном давлении";
+  if (itemName === "Queen's Wings" || itemName === "Oracle") return "усиливает живучесть в затяжном файте";
+  if (itemName === "Windtalker" || itemName === "Berserker's Fury" || itemName === "Haas's Claws") return "ускоряет критический DPS и силу лейта";
+  if (itemName === "Corrosion Scythe" || itemName === "Demon Hunter Sword" || itemName === "Golden Staff") return "дает стабильный DPS против плотных целей";
+  if (itemName === "Endless Battle" || itemName === "Blade of Despair") return "усиливает burst и добивание ключевой цели";
+  if (itemName === "Blade of the Heptaseas" || itemName === "Hunter Strike") return "помогает быстро вскрывать тонкую backline";
+  if (itemName === "Genius Wand" || itemName === "Lightning Truncheon" || itemName === "Holy Crystal") return "ускоряет магический burst и пик силы после core-предметов";
+  if (itemName === "Clock of Destiny" || itemName === "Demon Shoes" || itemName === "Enchanted Talisman") return "закрывает ману и скейлинг для стабильного темпа";
+  if (itemName === "Flask of the Oasis" || itemName === "Fleeting Time") return "усиливает сейв союзников и частоту ключевых ультимейтов";
+  if (itemName === "Necklace of Durance") return "режет лечение врагов, когда саппорт не может брать физический anti-heal";
+  if (itemName === "Antique Cuirass" || itemName === "Athena's Shield" || itemName === "Radiant Armor" || itemName === "Rose Gold Meteor") return "подстраивает защиту под главный тип урона врагов";
   if (itemName === "Thunder Belt") return "усиливает затяжные драки и контроль фронта";
   if (itemName === "Wishing Lantern" || itemName === "Glowing Wand") return "сильный poke и урон по плотным целям";
   if (itemName === "Sky Piercer") return "ускоряет добивание тонких целей в текущей мете";
