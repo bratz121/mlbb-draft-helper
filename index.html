@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MLBB Draft Helper</title>
+    <link rel="stylesheet" href="styles.css?v=20260506-5" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Mobile Legends draft assistant</p>
+          <h1>Контрпики и сбор пика</h1>
+        </div>
+        <div class="meta-pill">
+          <span>Мета</span>
+          <strong>май 2026</strong>
+          <em id="appVersion">v2026.05.06.5</em>
+        </div>
+      </header>
+
+      <div id="appStatus" class="app-status">
+        HTML загружен, ожидаю app.js...
+      </div>
+
+      <section class="workspace">
+        <aside class="panel controls-panel" aria-label="Настройки драфта">
+          <div class="panel-header">
+            <h2>Драфт</h2>
+            <button id="resetBtn" class="ghost-button" type="button">
+              Сбросить
+            </button>
+          </div>
+
+          <div class="side-toggle" aria-label="Куда добавить героя">
+            <button
+              id="enemyModeBtn"
+              class="side-button active"
+              type="button"
+              data-side="enemies"
+            >
+              Враг
+            </button>
+            <button
+              id="allyModeBtn"
+              class="side-button"
+              type="button"
+              data-side="allies"
+            >
+              Мы
+            </button>
+            <button
+              id="banModeBtn"
+              class="side-button"
+              type="button"
+              data-side="bans"
+            >
+              Бан
+            </button>
+          </div>
+
+          <div class="field">
+            <span>Нужная роль</span>
+            <div id="roleFilter" class="segmented role-filter"></div>
+          </div>
+
+          <label class="field">
+            <span>Поиск героя</span>
+            <input
+              id="heroSearch"
+              class="search-input"
+              type="search"
+              placeholder="Например: Diggie, Khufra, Kimmy"
+            />
+          </label>
+
+          <label class="toggle">
+            <input id="metaOnlyToggle" type="checkbox" />
+            <span>Показывать только метовых героев</span>
+          </label>
+
+          <div class="picked-grid">
+            <div>
+              <h3>Баны</h3>
+              <div id="banPicks" class="chips"></div>
+            </div>
+            <div>
+              <h3>Враги</h3>
+              <div id="enemyPicks" class="chips"></div>
+            </div>
+            <div>
+              <h3>Мы</h3>
+              <div id="allyPicks" class="chips"></div>
+            </div>
+          </div>
+
+          <div class="slot-panel">
+            <h3>Наши роли</h3>
+            <div id="allySlots" class="role-slots"></div>
+          </div>
+        </aside>
+
+        <section class="panel picker-panel" aria-label="Выбор героев">
+          <div class="panel-header">
+            <div>
+              <h2 id="pickerTitle">Добавить героя врага</h2>
+              <p id="pickerHint" class="muted">
+                Клик по портрету добавляет героя в выбранную сторону.
+              </p>
+            </div>
+          </div>
+          <div id="heroGrid" class="hero-grid"></div>
+        </section>
+
+        <section class="panel recommendations-panel">
+          <div class="panel-header">
+            <div>
+              <h2>Лучшие варианты</h2>
+              <p id="draftSummary" class="muted"></p>
+            </div>
+            <button id="autoBuildBtn" class="ghost-button" type="button">
+              Автопик
+            </button>
+          </div>
+
+          <div id="draftScore" class="draft-score"></div>
+          <div id="recommendations" class="recommendations"></div>
+        </section>
+      </section>
+
+      <section class="panel data-panel">
+        <div>
+          <h2>Как считается рекомендация</h2>
+          <p>
+            Итоговый балл складывается из силы героя в текущей мете, контрпиков
+            против выбранных врагов, синергии с союзниками и штрафа за плохую
+            роль/уже выбранного героя.
+          </p>
+        </div>
+        <div class="sources">
+          <span
+            >Основа данных: patch 2.1.67 и открытые tier-листы на май
+            2026.</span
+          >
+          <span
+            >Для продакшена этот блок лучше заменить автообновляемой
+            базой.</span
+          >
+        </div>
+      </section>
+    </main>
+
+    <script>
+      window.MLBB_APP_VERSION = "2026.05.06.5";
+      window.addEventListener("error", function (event) {
+        var status = document.getElementById("appStatus");
+        if (!status) return;
+        status.textContent =
+          "Ошибка JS: " + (event.message || "неизвестная ошибка");
+        status.className = "app-status error";
+      });
+      window.setTimeout(function () {
+        var status = document.getElementById("appStatus");
+        if (!status || document.body.dataset.appReady === "true") return;
+        status.textContent =
+          "app.js не завершил запуск. Проверь Network/Console или обнови страницу Ctrl+F5.";
+        status.className = "app-status warn";
+      }, 5000);
+    </script>
+    <script src="app.js?v=20260506-5" defer></script>
+  </body>
+</html>
