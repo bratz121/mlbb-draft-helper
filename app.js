@@ -1,5 +1,5 @@
 const roles = ["Любая", "Jungle", "EXP", "Mid", "Gold", "Roam"];
-const APP_VERSION = window.MLBB_APP_VERSION || "2026.05.06.17";
+const APP_VERSION = window.MLBB_APP_VERSION || "2026.05.06.18";
 const teamRoles = ["Jungle", "EXP", "Mid", "Gold", "Roam"];
 const roleBadges = {
   Любая: { short: "All", label: "Все" },
@@ -1120,6 +1120,258 @@ const proBuildProfiles = {
     },
   },
 };
+
+const buildSourceMeta = {
+  checked: "06.05.2026",
+  sources: "MLBB.io item-build/pro-build + MLBBHub hero build pages",
+};
+
+const proBuildDatabase = [
+  {
+    id: "atk-speed-gold-front",
+    label: "Gold DPS против плотного фронта",
+    roles: ["Gold"],
+    archetypes: ["marksman"],
+    tags: ["tankFront", "antiHeal"],
+    source: buildSourceMeta.sources,
+    checked: buildSourceMeta.checked,
+    core: ["Swift Boots", "Corrosion Scythe", "Demon Hunter Sword"],
+    defaultLate: ["Golden Staff", "Malefic Roar", "Wind of Nature"],
+    situations: {
+      antiHeal: "Sea Halberd",
+      tankFront: "Malefic Roar",
+      physicalBurst: "Wind of Nature",
+      magicBurst: "Rose Gold Meteor",
+      lateSafety: "Immortality",
+    },
+  },
+  {
+    id: "crit-gold-carry",
+    label: "Crit Gold для лейта",
+    roles: ["Gold"],
+    archetypes: ["marksman"],
+    tags: ["physicalBurst", "lateSafety"],
+    source: buildSourceMeta.sources,
+    checked: buildSourceMeta.checked,
+    core: ["Swift Boots", "Windtalker", "Berserker's Fury"],
+    defaultLate: ["Haas's Claws", "Malefic Roar", "Wind of Nature"],
+    situations: {
+      antiHeal: "Sea Halberd",
+      tankFront: "Malefic Roar",
+      physicalBurst: "Wind of Nature",
+      magicBurst: "Rose Gold Meteor",
+      lateSafety: "Immortality",
+    },
+  },
+  {
+    id: "burst-mm-skill",
+    label: "Skill marksman burst",
+    roles: ["Gold", "Jungle"],
+    archetypes: ["marksman", "assassin"],
+    tags: ["mobileBackline", "physicalBurst"],
+    source: buildSourceMeta.sources,
+    checked: buildSourceMeta.checked,
+    core: ["Swift Boots", "Endless Battle", "Blade of Despair"],
+    defaultLate: ["Hunter Strike", "Malefic Roar", "Wind of Nature"],
+    situations: {
+      antiHeal: "Sea Halberd",
+      tankFront: "Malefic Roar",
+      physicalBurst: "Wind of Nature",
+      lateSafety: "Immortality",
+    },
+  },
+  {
+    id: "mage-poke-control",
+    label: "Poke mage контроль зоны",
+    roles: ["Mid"],
+    archetypes: ["mage"],
+    tags: ["tankFront", "magicDps"],
+    source: buildSourceMeta.sources,
+    checked: buildSourceMeta.checked,
+    core: ["Arcane Boots", "Enchanted Talisman", "Ice Queen Wand"],
+    defaultLate: ["Glowing Wand", "Divine Glaive", "Winter Crown"],
+    situations: {
+      tankFront: "Divine Glaive",
+      magicDps: "Glowing Wand",
+      chase: "Ice Queen Wand",
+      lateSafety: "Winter Crown",
+    },
+  },
+  {
+    id: "mage-burst",
+    label: "Burst mage окно убийства",
+    roles: ["Mid", "Jungle"],
+    archetypes: ["mage", "assassin"],
+    tags: ["mobileBackline", "magicBurst"],
+    source: buildSourceMeta.sources,
+    checked: buildSourceMeta.checked,
+    core: ["Arcane Boots", "Genius Wand", "Lightning Truncheon"],
+    defaultLate: ["Holy Crystal", "Divine Glaive", "Winter Crown"],
+    situations: {
+      tankFront: "Divine Glaive",
+      magicDps: "Glowing Wand",
+      lateSafety: "Winter Crown",
+    },
+  },
+  {
+    id: "mage-sustain-scaling",
+    label: "Sustain mage scaling",
+    roles: ["Mid", "EXP"],
+    archetypes: ["mage", "fighter"],
+    tags: ["magicDps", "lateSafety"],
+    source: buildSourceMeta.sources,
+    checked: buildSourceMeta.checked,
+    core: ["Arcane Boots", "Clock of Destiny", "Concentrated Energy"],
+    defaultLate: ["Oracle", "Divine Glaive", "Winter Crown"],
+    situations: {
+      tankFront: "Divine Glaive",
+      magicDps: "Glowing Wand",
+      lateSafety: "Winter Crown",
+    },
+  },
+  {
+    id: "assassin-physical-snowball",
+    label: "Physical assassin snowball",
+    roles: ["Jungle"],
+    archetypes: ["assassin"],
+    tags: ["mobileBackline", "lateSafety"],
+    source: buildSourceMeta.sources,
+    checked: buildSourceMeta.checked,
+    core: ["Tough Boots", "Sky Piercer", "Hunter Strike"],
+    defaultLate: ["Blade of Despair", "Malefic Roar", "Immortality"],
+    situations: {
+      antiHeal: "Sea Halberd",
+      tankFront: "Malefic Roar",
+      magicBurst: "Rose Gold Meteor",
+      lateSafety: "Immortality",
+    },
+  },
+  {
+    id: "assassin-pickoff",
+    label: "Pickoff assassin",
+    roles: ["Jungle", "Roam"],
+    archetypes: ["assassin"],
+    tags: ["mobileBackline"],
+    source: buildSourceMeta.sources,
+    checked: buildSourceMeta.checked,
+    core: ["Tough Boots", "Sky Piercer", "Blade of the Heptaseas"],
+    defaultLate: ["Hunter Strike", "Blade of Despair", "Immortality"],
+    situations: {
+      antiHeal: "Sea Halberd",
+      tankFront: "Malefic Roar",
+      magicBurst: "Rose Gold Meteor",
+      lateSafety: "Immortality",
+    },
+  },
+  {
+    id: "fighter-sustain-exp",
+    label: "EXP sustain fighter",
+    roles: ["EXP"],
+    archetypes: ["fighter", "tank"],
+    tags: ["tankFront", "physicalBurst"],
+    source: buildSourceMeta.sources,
+    checked: buildSourceMeta.checked,
+    core: ["Warrior Boots", "Bloodlust Axe", "War Axe"],
+    defaultLate: ["Hunter Strike", "Queen's Wings", "Immortality"],
+    situations: {
+      antiHeal: "Sea Halberd",
+      tankFront: "Malefic Roar",
+      physicalBurst: "Antique Cuirass",
+      magicBurst: "Athena's Shield",
+      sustainDuel: "Oracle",
+    },
+  },
+  {
+    id: "fighter-bruiser",
+    label: "Bruiser fighter темп",
+    roles: ["EXP", "Jungle"],
+    archetypes: ["fighter"],
+    tags: ["physicalBurst", "lateSafety"],
+    source: buildSourceMeta.sources,
+    checked: buildSourceMeta.checked,
+    core: ["Warrior Boots", "War Axe", "Hunter Strike"],
+    defaultLate: ["Queen's Wings", "Malefic Roar", "Immortality"],
+    situations: {
+      antiHeal: "Sea Halberd",
+      tankFront: "Malefic Roar",
+      physicalBurst: "Antique Cuirass",
+      magicBurst: "Athena's Shield",
+      sustainDuel: "Oracle",
+    },
+  },
+  {
+    id: "tank-roam-standard",
+    label: "Roam tank engage",
+    roles: ["Roam"],
+    archetypes: ["tank"],
+    tags: ["antiHeal", "physicalBurst"],
+    source: buildSourceMeta.sources,
+    checked: buildSourceMeta.checked,
+    core: ["Tough Boots", "Dominance Ice", "Thunder Belt"],
+    defaultLate: ["Antique Cuirass", "Athena's Shield", "Immortality"],
+    situations: {
+      antiHeal: "Dominance Ice",
+      physicalBurst: "Antique Cuirass",
+      magicBurst: "Athena's Shield",
+      magicDps: "Radiant Armor",
+      lateSafety: "Immortality",
+    },
+  },
+  {
+    id: "tank-sustain-front",
+    label: "Sustain frontline",
+    roles: ["EXP", "Roam", "Jungle"],
+    archetypes: ["tank", "fighter"],
+    tags: ["magicDps", "lateSafety"],
+    source: buildSourceMeta.sources,
+    checked: buildSourceMeta.checked,
+    core: ["Tough Boots", "Thunder Belt", "Dominance Ice"],
+    defaultLate: ["Oracle", "Radiant Armor", "Immortality"],
+    situations: {
+      antiHeal: "Dominance Ice",
+      physicalBurst: "Antique Cuirass",
+      magicBurst: "Athena's Shield",
+      magicDps: "Radiant Armor",
+      lateSafety: "Immortality",
+    },
+  },
+  {
+    id: "support-heal-save",
+    label: "Support heal/save",
+    roles: ["Roam"],
+    archetypes: ["tank"],
+    tags: ["magicBurst", "lateSafety"],
+    source: buildSourceMeta.sources,
+    checked: buildSourceMeta.checked,
+    core: ["Tough Boots", "Flask of the Oasis", "Fleeting Time"],
+    defaultLate: ["Necklace of Durance", "Athena's Shield", "Immortality"],
+    situations: {
+      antiHeal: "Dominance Ice",
+      physicalBurst: "Antique Cuirass",
+      magicBurst: "Athena's Shield",
+      magicDps: "Radiant Armor",
+      lateSafety: "Immortality",
+    },
+  },
+  {
+    id: "support-control-roam",
+    label: "Utility roam контроль",
+    roles: ["Roam"],
+    archetypes: ["tank"],
+    tags: ["antiHeal", "mobileBackline"],
+    source: buildSourceMeta.sources,
+    checked: buildSourceMeta.checked,
+    core: ["Tough Boots", "Dominance Ice", "Fleeting Time"],
+    defaultLate: ["Athena's Shield", "Immortality", "Antique Cuirass"],
+    situations: {
+      antiHeal: "Dominance Ice",
+      physicalBurst: "Antique Cuirass",
+      magicBurst: "Athena's Shield",
+      magicDps: "Radiant Armor",
+      lateSafety: "Immortality",
+    },
+  },
+];
 
 applyCounterChart();
 
@@ -2643,6 +2895,7 @@ function renderHeroProfile(hero) {
       <h3>Билд под текущих врагов</h3>
       <p>${build.summary}</p>
       <p class="profile-source">Основа сборки: ${build.source}</p>
+      ${renderBuildVariantInfo(build)}
       <div class="build-list">
         ${build.items.map(renderBuildItem).join("")}
       </div>
@@ -2673,6 +2926,7 @@ function renderHeroBuildModal(hero) {
       <h3>Предметы и тайминги</h3>
       <p>${build.summary}</p>
       <p class="profile-source">Основа сборки: ${build.source}</p>
+      ${renderBuildVariantInfo(build)}
       <div class="build-list">
         ${build.items.map(renderBuildItem).join("")}
       </div>
@@ -2710,6 +2964,20 @@ function renderBuildItem(item, index) {
         <span>${item.timing}</span>
         <p>${item.reason}</p>
       </div>
+    </div>
+  `;
+}
+
+function renderBuildVariantInfo(build) {
+  if (!build.variant) return "";
+  const tags = build.variant.tags?.length
+    ? build.variant.tags.map((tag) => `<li>${getBuildTagLabel(tag)}</li>`).join("")
+    : "<li>базовая ситуация</li>";
+  return `
+    <div class="build-variant">
+      <strong>${build.variant.label}</strong>
+      <span>Совпадение: ${build.variant.match}% · проверено ${build.variant.checked}</span>
+      <ul>${tags}</ul>
     </div>
   `;
 }
@@ -2861,7 +3129,7 @@ function getBuildRecommendation(hero) {
   const archetype = getHeroArchetype(hero);
   const enemyHeroes = state.enemies.map((name) => heroByName.get(name)).filter(Boolean);
   const situation = getEnemyBuildSituation(enemyHeroes);
-  const profile = proBuildProfiles[hero.name] || proBuildProfiles[archetype] || getBaseBuild(archetype);
+  const profile = chooseProBuildProfile(hero, archetype, situation);
   const items = [...profile.core, ...profile.defaultLate];
   const notes = [];
   const applySituation = (condition, key, note) => {
@@ -2883,14 +3151,113 @@ function getBuildRecommendation(hero) {
   return {
     summary: notes.length
       ? `Адаптация: ${uniqueList(notes).join(", ")}.`
-      : "Pro-inspired базовый порядок без жесткой контры от текущих врагов.",
+      : "Выбран ближайший pro/high-rank вариант без жесткой контры от текущих врагов.",
     source: profile.source,
+    variant: profile.variant,
     items: items.map((name, index) => ({
       id: name,
       timing: getItemTiming(index),
       reason: getItemReason(name, hero, archetype),
     })),
   };
+}
+
+function chooseProBuildProfile(hero, archetype, situation) {
+  const personal = proBuildProfiles[hero.name] || proBuildProfiles[archetype] || getBaseBuild(archetype);
+  const ranked = proBuildDatabase
+    .map((variant) => ({
+      variant,
+      score: scoreBuildVariant(variant, hero, archetype, situation),
+    }))
+    .sort((a, b) => b.score - a.score);
+  const best = ranked[0];
+  if (!best || best.score < 20) {
+    return {
+      ...personal,
+      source: `${personal.source}; ${buildSourceMeta.sources}, проверено ${buildSourceMeta.checked}`,
+      variant: {
+        label: "Персональный fallback-профиль",
+        match: 55,
+        checked: buildSourceMeta.checked,
+        tags: ["fallback"],
+      },
+    };
+  }
+
+  return {
+    source: `${best.variant.source}; проверено ${best.variant.checked}`,
+    core: [...best.variant.core],
+    defaultLate: [...best.variant.defaultLate],
+    situations: { ...personal.situations, ...best.variant.situations },
+    variant: {
+      label: best.variant.label,
+      match: Math.max(55, Math.min(99, Math.round(best.score))),
+      checked: best.variant.checked,
+      tags: getActiveBuildTags(situation).filter((tag) => best.variant.tags.includes(tag)),
+    },
+  };
+}
+
+function scoreBuildVariant(variant, hero, archetype, situation) {
+  let score = 0;
+  if (variant.archetypes.includes(archetype)) score += 34;
+  hero.roles.forEach((role) => {
+    if (variant.roles.includes(role)) score += 18;
+  });
+
+  const heroKey = getHeroBuildProfileKey(hero);
+  if (
+    (heroKey === "critMarksman" && variant.id === "crit-gold-carry") ||
+    (heroKey === "marksman" && variant.id === "atk-speed-gold-front") ||
+    (heroKey === "burstMage" && variant.id === "mage-burst") ||
+    (heroKey === "mage" && variant.id === "mage-poke-control") ||
+    (heroKey === "sustainMage" && variant.id === "mage-sustain-scaling") ||
+    (heroKey === "burstAssassin" && variant.id.includes("assassin")) ||
+    (heroKey === "sustainFighter" && variant.id === "fighter-sustain-exp") ||
+    (heroKey === "fighter" && variant.id === "fighter-bruiser") ||
+    (heroKey === "support" && variant.id.includes("support")) ||
+    (heroKey === "tank" && variant.id.includes("tank"))
+  ) {
+    score += 24;
+  }
+
+  getActiveBuildTags(situation).forEach((tag) => {
+    if (variant.tags.includes(tag)) score += 10;
+  });
+
+  if (hero.roles.includes("Roam") && variant.id.includes("support") && ["Angela", "Floryn", "Estes", "Rafaela", "Mathilda"].includes(hero.name)) score += 24;
+  if (hero.roles.includes("Roam") && variant.id === "tank-roam-standard" && hasFrontline(hero)) score += 22;
+  if (["Kimmy", "Natan", "Harley", "Gusion", "Aamon", "Julian"].includes(hero.name) && variant.id === "mage-burst") score += 18;
+  if (["Alice", "Esmeralda", "Harith", "Cyclops"].includes(hero.name) && variant.id === "mage-sustain-scaling") score += 24;
+  if (["Granger", "Brody", "Clint", "Lesley"].includes(hero.name) && variant.id === "burst-mm-skill") score += 24;
+
+  return score;
+}
+
+function getActiveBuildTags(situation) {
+  return [
+    situation.hasHealing ? "antiHeal" : null,
+    situation.hasFront ? "tankFront" : null,
+    situation.hasMobileBackline ? "mobileBackline" : null,
+    situation.hasPhysicalBurst ? "physicalBurst" : null,
+    situation.hasMagicBurst ? "magicBurst" : null,
+    situation.hasMagicDps ? "magicDps" : null,
+    situation.needsSafety ? "lateSafety" : null,
+  ].filter(Boolean);
+}
+
+function getBuildTagLabel(tag) {
+  const labels = {
+    antiHeal: "anti-heal",
+    tankFront: "пробой фронта",
+    mobileBackline: "доступ к backline",
+    physicalBurst: "защита от физ burst",
+    magicBurst: "защита от маг burst",
+    magicDps: "длинный магический урон",
+    lateSafety: "страховка в лейте",
+    fallback: "нет точного совпадения",
+  };
+  return labels[tag] || tag;
 }
 
 function getEnemyBuildSituation(enemyHeroes) {
