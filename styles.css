@@ -1083,33 +1083,224 @@ button {
   .topbar {
     align-items: stretch;
     flex-direction: column;
+    gap: 14px;
   }
 
   .workspace {
     grid-template-columns: 1fr;
   }
 
+  .controls-panel {
+    position: relative;
+  }
+
+  .picker-panel {
+    order: 2;
+  }
+
+  .recommendations-panel {
+    order: 3;
+  }
+
+  .panel-header {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .panel-header .ghost-button {
+    flex: 1 1 110px;
+  }
+
+  .side-toggle {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    margin: -4px -4px 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(16, 18, 21, 0.94);
+    padding: 6px;
+    backdrop-filter: blur(10px);
+  }
+
+  .picked-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
   .hero-grid {
-    max-height: 430px;
+    grid-template-columns: repeat(auto-fill, minmax(94px, 1fr));
+    max-height: none;
+    overflow: visible;
+  }
+
+  .hero-tile {
+    min-height: 126px;
+    padding: 8px;
+  }
+
+  .hero-avatar {
+    height: 64px;
+  }
+
+  .hero-name {
+    min-height: 30px;
+    font-size: 12px;
+  }
+
+  .hero-grid {
+    padding-right: 0;
   }
 }
 
 @media (max-width: 520px) {
   .app-shell {
-    width: min(100% - 20px, 1220px);
-    padding: 16px 0;
+    width: min(100% - 14px, 1220px);
+    padding: 10px 0 18px;
+  }
+
+  h1 {
+    font-size: 34px;
+    line-height: 0.96;
+  }
+
+  h2 {
+    font-size: 20px;
+  }
+
+  .eyebrow {
+    margin-bottom: 6px;
+    font-size: 11px;
+  }
+
+  .meta-pill {
+    min-width: 0;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    padding: 10px 12px;
+  }
+
+  .meta-pill em {
+    grid-column: 1 / -1;
+  }
+
+  .app-status {
+    margin-bottom: 12px;
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .controls-panel,
+  .picker-panel,
+  .recommendations-panel,
+  .data-panel {
+    padding: 12px;
+  }
+
+  .panel-header {
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .side-toggle-wide {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
+  }
+
+  .side-button {
+    min-height: 38px;
+    padding: 0 4px;
+    font-size: 12px;
   }
 
   .segmented {
     grid-template-columns: repeat(2, 1fr);
   }
 
+  .role-filter {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .role-chip {
+    min-height: 46px;
+    gap: 6px;
+    padding: 6px;
+  }
+
+  .role-mark {
+    flex-basis: 28px;
+    width: 28px;
+    height: 28px;
+    font-size: 10px;
+  }
+
+  .role-copy strong {
+    font-size: 12px;
+  }
+
+  .role-copy em {
+    display: none;
+  }
+
+  .search-input,
+  select {
+    min-height: 40px;
+  }
+
+  .toggle {
+    margin-bottom: 14px;
+    font-size: 13px;
+  }
+
+  .draft-actions {
+    margin-bottom: 14px;
+  }
+
+  .picked-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .chips {
+    min-height: 32px;
+    gap: 6px;
+  }
+
+  .chip {
+    min-height: 30px;
+    padding: 0 8px;
+    font-size: 12px;
+  }
+
+  .chip-avatar {
+    width: 22px;
+    height: 22px;
+  }
+
+  .role-slots {
+    gap: 7px;
+  }
+
   .hero-card {
     grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 12px;
   }
 
   .draft-score {
     grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .win-ring {
+    width: 92px;
+    height: 92px;
+    justify-self: center;
+  }
+
+  .win-ring-inner {
+    width: 72px;
+    height: 72px;
   }
 
   .matchup-summary {
@@ -1121,12 +1312,90 @@ button {
   }
 
   .role-slot {
-    grid-template-columns: 52px minmax(0, 1fr);
+    grid-template-columns: 46px minmax(0, 1fr) 70px 30px;
+    gap: 6px;
+    padding: 6px;
   }
 
-  .slot-suggest,
+  .role-slot select {
+    min-height: 32px;
+    font-size: 12px;
+  }
+
+  .slot-suggest {
+    min-height: 32px;
+    padding: 0 6px;
+    font-size: 11px;
+  }
+
   .slot-clear {
+    width: 30px;
+    min-height: 30px;
+  }
+
+  .hero-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .hero-tile {
+    min-height: 116px;
+    gap: 5px;
+    padding: 7px;
+  }
+
+  .hero-avatar {
+    height: 58px;
+  }
+
+  .tile-meta {
+    gap: 4px;
+  }
+
+  .tile-meta span {
+    padding: 2px 5px;
+    font-size: 9px;
+  }
+
+  .hero-title h3 {
+    font-size: 18px;
+  }
+
+  .card-avatar {
+    width: 38px;
+    height: 38px;
+  }
+
+  .ban-recommendations,
+  .insight,
+  .matchup-group {
+    padding: 9px;
+  }
+
+  .ban-head div,
+  .insights-head,
+  .stage-head {
+    align-items: start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .ban-card {
+    min-height: 50px;
+  }
+
+  .role-dialog {
+    align-items: end;
+    padding: 10px;
+  }
+
+  .role-dialog-card {
     width: 100%;
+    padding: 14px;
+  }
+
+  .role-dialog-options {
+    grid-template-columns: 1fr;
   }
 
   .score {
