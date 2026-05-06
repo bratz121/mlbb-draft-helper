@@ -1,5 +1,5 @@
 const roles = ["Любая", "Jungle", "EXP", "Mid", "Gold", "Roam"];
-const APP_VERSION = window.MLBB_APP_VERSION || "2026.05.06.13";
+const APP_VERSION = window.MLBB_APP_VERSION || "2026.05.06.14";
 const teamRoles = ["Jungle", "EXP", "Mid", "Gold", "Roam"];
 const roleBadges = {
   Любая: { short: "All", label: "Все" },
@@ -98,6 +98,34 @@ const magicDamageHeroes = new Set([
   "Yve", "Zetian", "Zhask", "Zhuxin",
 ]);
 const trueDamageHeroes = new Set(["Karrie", "X.Borg", "Alpha", "Baxia", "Lesley"]);
+
+const itemCatalog = {
+  "Swift Boots": { ru: "Сапоги скорости", slug: "swift-boots" },
+  "Tough Boots": { ru: "Стойкие сапоги", slug: "tough-boots" },
+  "Warrior Boots": { ru: "Сапоги воина", slug: "warrior-boots" },
+  "Arcane Boots": { ru: "Магические сапоги", slug: "arcane-boots" },
+  "Corrosion Scythe": { ru: "Коррозийная коса", slug: "corrosion-scythe" },
+  "Demon Hunter Sword": { ru: "Меч охотника на демонов", slug: "demon-hunter-sword" },
+  "Golden Staff": { ru: "Золотой посох", slug: "golden-staff" },
+  "Malefic Roar": { ru: "Злобный рык", slug: "malefic-roar" },
+  Immortality: { ru: "Бессмертие", slug: "immortality" },
+  "Enchanted Talisman": { ru: "Зачарованный талисман", slug: "enchanted-talisman" },
+  "Glowing Wand": { ru: "Пылающий жезл", slug: "glowing-wand" },
+  "Wishing Lantern": { ru: "Фонарь желаний", slug: "wishing-lantern" },
+  "Divine Glaive": { ru: "Божественный меч", slug: "divine-glaive" },
+  "Winter Crown": { ru: "Зимняя корона", slug: "winter-crown" },
+  "Sky Piercer": { ru: "Небесный пронзатель", slug: "sky-piercer" },
+  "Hunter Strike": { ru: "Удар охотника", slug: "hunter-strike" },
+  "Blade of Despair": { ru: "Клинок отчаяния", slug: "blade-of-desperation" },
+  "War Axe": { ru: "Боевой топор", slug: "war-axe" },
+  "Brute Force Breastplate": { ru: "Кираса грубой силы", slug: "brute-force-breastplate" },
+  "Queen's Wings": { ru: "Крылья королевы", slug: "queens-wings" },
+  "Dominance Ice": { ru: "Лед господства", slug: "dominance-ice" },
+  "Thunder Belt": { ru: "Громовой пояс", slug: "thunder-belt" },
+  "Antique Cuirass": { ru: "Древняя кираса", slug: "antique-cuirass" },
+  "Athena's Shield": { ru: "Щит Афины", slug: "athenas-shield" },
+  "Sea Halberd": { ru: "Морская алебарда", slug: "sea-halberd" },
+};
 
 let heroes = [
   {
@@ -2319,11 +2347,23 @@ function renderProfileBlock(title, items, tone) {
 function renderBuildItem(item, index) {
   return `
     <div class="build-item">
-      <strong>${index + 1}. ${item.name}</strong>
-      <span>${item.timing}</span>
-      <p>${item.reason}</p>
+      <img class="item-icon" src="${getItemImageUrl(item.id)}" alt="" loading="lazy" decoding="async" onerror="this.remove()" />
+      <div>
+        <strong>${index + 1}. ${getItemName(item.id)}</strong>
+        <span>${item.timing}</span>
+        <p>${item.reason}</p>
+      </div>
     </div>
   `;
+}
+
+function getItemName(itemId) {
+  return itemCatalog[itemId]?.ru || itemId;
+}
+
+function getItemImageUrl(itemId) {
+  const slug = itemCatalog[itemId]?.slug || getHeroSlug(itemId);
+  return `assets/items/${slug}.png`;
 }
 
 function getHeroMatchupProfile(hero) {
@@ -2408,7 +2448,7 @@ function getBuildRecommendation(hero) {
       ? `Адаптация: ${uniqueList(notes).join(", ")}.`
       : "Базовый метовый порядок без жесткой контры от текущих врагов.",
     items: items.map((name, index) => ({
-      name,
+      id: name,
       timing: getItemTiming(index),
       reason: getItemReason(name, hero, archetype),
     })),
@@ -2472,7 +2512,7 @@ function getHeroGamePlan(hero, build) {
   ].sort((a, b) => b[1] - a[1])[0][0];
   const plan = [
     `Пик сильнее в ${bestStage}: играй вокруг этой стадии.`,
-    `Первый ключевой слот: ${build.items[1]?.name || "первый core-предмет"} к ${build.items[1]?.timing || "4 минуте"}.`,
+    `Первый ключевой слот: ${getItemName(build.items[1]?.id) || "первый core-предмет"} к ${build.items[1]?.timing || "4 минуте"}.`,
   ];
 
   if (hero.roles.includes("Gold")) plan.push("До 2 предметов не форсируй лишние драки без сейва роама.");

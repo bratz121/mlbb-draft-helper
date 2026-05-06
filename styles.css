@@ -1152,11 +1152,27 @@ button {
 
 .build-item {
   display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
   gap: 5px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel-2);
   padding: 10px;
+}
+
+.item-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.build-item div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
 }
 
 .build-item strong {
