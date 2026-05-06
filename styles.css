@@ -1118,6 +1118,12 @@ button {
   line-height: 1.45;
 }
 
+.profile-source {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .profile-actions {
   margin: 14px 0;
 }

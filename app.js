@@ -949,6 +949,15 @@ const counterChart = {
   Zilong: ["Khufra", "Kaja", "Minsitthar", "Valir"],
 };
 
+const currentHeroIntel = {
+  Alpha: {
+    targets: ["Uranus", "Barats", "Fredrinn", "Hylos", "Balmond"],
+    allies: ["Tigreal", "Atlas", "Angela", "Floryn", "Minotaur"],
+    dangers: ["Baxia", "Valir", "Karrie", "X.Borg"],
+    source: "MLBB.io hero guide + текущая локальная контр-база",
+  },
+};
+
 applyCounterChart();
 
 const state = {
@@ -2317,6 +2326,7 @@ function renderHeroProfile(hero) {
       ${renderProfileBlock("Опасные враги", matchup.dangers, "bad")}
       ${renderProfileBlock("Лучшие союзники", matchup.synergies, "neutral")}
     </div>
+    <p class="profile-source">Матчапы: ${currentHeroIntel[hero.name]?.source || "MLBB.io / локальная контр-база / role-matchup эвристика"} · v${APP_VERSION}</p>
     <div class="profile-section">
       <h3>Билд под текущих врагов</h3>
       <p>${build.summary}</p>
@@ -2367,25 +2377,87 @@ function getItemImageUrl(itemId) {
 }
 
 function getHeroMatchupProfile(hero) {
-  const selectedEnemies = state.enemies.length ? state.enemies : hero.counters.slice(0, 4);
-  const targets = selectedEnemies
-    .filter((enemyName) => getCounterWeight(hero.name, enemyName) || hero.counters.includes(enemyName))
-    .map((enemyName) => explainMatchup(hero.name, enemyName, "good"))
+  const intel = currentHeroIntel[hero.name] || {};
+  const targets = getCounteredTargets(hero, intel)
+    .map((name) => explainMatchup(hero.name, name, "good"))
     .slice(0, 5);
-
-  const dangers = uniqueList([
-    ...hero.weakInto,
-    ...state.enemies.filter((enemyName) => getCounterWeight(enemyName, hero.name)),
-  ])
-    .map((enemyName) => explainMatchup(enemyName, hero.name, "bad"))
+  const dangers = getDangerousMatchups(hero, intel)
+    .map((name) => explainMatchup(name, hero.name, "bad"))
     .slice(0, 5);
-
-  const synergies = hero.synergies
-    .filter((name) => heroByName.has(name))
-    .map((name) => `${name}: усиливает темп и закрывает слабые стороны`)
+  const synergies = getBestAllies(hero, intel)
+    .map((name) => explainSynergy(hero, heroByName.get(name)))
     .slice(0, 5);
 
   return { targets, dangers, synergies };
+}
+
+function getCounteredTargets(hero, intel = {}) {
+  const scores = new Map();
+  const add = (name, value) => {
+    if (!heroByName.has(name) || name === hero.name) return;
+    scores.set(name, (scores.get(name) || 0) + value + (heroByName.get(name)?.meta || 70) / 10);
+  };
+
+  (intel.targets || []).forEach((name, index) => add(name, 120 - index * 8));
+  hero.counters.forEach((name, index) => add(name, 100 - index * 7));
+
+  heroes.forEach((target) => {
+    const chartWeight = getCounterWeight(hero.name, target.name);
+    if (chartWeight) add(target.name, chartWeight);
+    if (target.weakInto.includes(hero.name)) add(target.name, 86);
+    if (trueDamageHeroes.has(hero.name) && hasFrontline(target)) add(target.name, 38);
+    if (antiHealHeroes.has(hero.name) && healingHeroes.has(target.name)) add(target.name, 44);
+    if (hasControl(hero) && (target.roles.includes("Jungle") || target.roles.includes("Gold"))) add(target.name, 22);
+  });
+
+  return sortNamesByScore(scores);
+}
+
+function getDangerousMatchups(hero, intel = {}) {
+  const scores = new Map();
+  const add = (name, value) => {
+    if (!heroByName.has(name) || name === hero.name) return;
+    scores.set(name, (scores.get(name) || 0) + value + (heroByName.get(name)?.meta || 70) / 10);
+  };
+
+  (intel.dangers || []).forEach((name, index) => add(name, 125 - index * 8));
+  hero.weakInto.forEach((name, index) => add(name, 105 - index * 8));
+  (counterChart[hero.name] || []).forEach((name, index) => add(name, 100 - index * 8));
+
+  state.enemies.forEach((name) => {
+    if (getCounterWeight(name, hero.name)) add(name, 112);
+  });
+
+  return sortNamesByScore(scores);
+}
+
+function getBestAllies(hero, intel = {}) {
+  const scores = new Map();
+  const add = (name, value) => {
+    if (!heroByName.has(name) || name === hero.name) return;
+    scores.set(name, (scores.get(name) || 0) + value + (heroByName.get(name)?.meta || 70) / 12);
+  };
+
+  (intel.allies || []).forEach((name, index) => add(name, 125 - index * 8));
+  hero.synergies.forEach((name, index) => add(name, 110 - index * 8));
+
+  heroes.forEach((ally) => {
+    if (ally.synergies.includes(hero.name)) add(ally.name, 90);
+    if ((hero.roles.includes("Gold") || hero.roles.includes("Mid")) && ["Lolita", "Minotaur", "Diggie", "Angela", "Floryn"].includes(ally.name)) add(ally.name, 64);
+    if ((hero.roles.includes("EXP") || hero.roles.includes("Jungle")) && ["Tigreal", "Atlas", "Angela", "Floryn", "Minotaur", "Mathilda"].includes(ally.name)) add(ally.name, 62);
+    if ((hero.roles.includes("Roam") || hasFrontline(hero)) && ["Pharsa", "Yve", "Kimmy", "Granger", "Karrie", "Luo Yi"].includes(ally.name)) add(ally.name, 58);
+    state.enemies.forEach((enemyName) => {
+      if (getCounterWeight(ally.name, enemyName)) add(ally.name, 18);
+    });
+  });
+
+  return sortNamesByScore(scores);
+}
+
+function sortNamesByScore(scores) {
+  return [...scores.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([name]) => name);
 }
 
 function explainMatchup(actorName, targetName, tone) {
@@ -2397,6 +2469,12 @@ function explainMatchup(actorName, targetName, tone) {
   if (controlHeroes.has(actorName) || actorRoles.includes("Roam")) {
     return `${actorName} -> ${targetName}: контроль мешает входу и сбивает темп`;
   }
+  if (trueDamageHeroes.has(actorName) && (frontlineHeroes.has(targetName) || targetRoles.includes("EXP"))) {
+    return `${actorName} -> ${targetName}: true damage и sustain хорошо работают против плотной цели`;
+  }
+  if (antiHealHeroes.has(actorName) && healingHeroes.has(targetName)) {
+    return `${actorName} -> ${targetName}: режет лечение и затяжной sustain`;
+  }
   if (frontlineHeroes.has(targetName) || targetRoles.includes("EXP")) {
     return `${actorName} -> ${targetName}: хорошо пробивает плотный фронт`;
   }
@@ -2407,6 +2485,29 @@ function explainMatchup(actorName, targetName, tone) {
     return `${actorName} -> ${targetName}: опасный матчап, лучше закрывать баном или сейвом`;
   }
   return `${actorName} -> ${targetName}: хороший ответ по базе контрпиков`;
+}
+
+function explainSynergy(hero, ally) {
+  if (!ally) return "Нет данных";
+  if (hero.synergies.includes(ally.name) || ally.synergies.includes(hero.name)) {
+    return `${ally.name}: прямая синергия из актуальной базы`;
+  }
+  if (["Angela", "Floryn"].includes(ally.name)) {
+    return `${ally.name}: дает sustain и помогает пережить фокус`;
+  }
+  if (["Tigreal", "Atlas", "Minotaur"].includes(ally.name)) {
+    return `${ally.name}: собирает врагов под вход и продолжение урона`;
+  }
+  if (["Lolita", "Diggie"].includes(ally.name)) {
+    return `${ally.name}: защищает от engage и снарядов, дает безопасный файт`;
+  }
+  if (ally.roles.includes("Mid")) {
+    return `${ally.name}: добавляет контроль зоны и урон перед дракой`;
+  }
+  if (ally.roles.includes("Gold")) {
+    return `${ally.name}: добавляет лейт-урон, пока ${hero.name} создает пространство`;
+  }
+  return `${ally.name}: закрывает роль и усиливает баланс состава`;
 }
 
 function getBuildRecommendation(hero) {
