@@ -1,5 +1,5 @@
 const roles = ["Любая", "Jungle", "EXP", "Mid", "Gold", "Roam"];
-const APP_VERSION = window.MLBB_APP_VERSION || "2026.05.06.6";
+const APP_VERSION = window.MLBB_APP_VERSION || "2026.05.06.11";
 const teamRoles = ["Jungle", "EXP", "Mid", "Gold", "Roam"];
 const roleBadges = {
   Любая: { short: "All", label: "Все" },
@@ -78,6 +78,26 @@ const stageBias = {
     "Melissa",
   ],
 };
+
+const controlHeroes = new Set([
+  "Akai", "Atlas", "Aurora", "Belerick", "Chou", "Diggie", "Edith", "Franco", "Gatotkaca",
+  "Gloo", "Guinevere", "Johnson", "Kaja", "Khufra", "Lolita", "Minotaur", "Minsitthar",
+  "Nana", "Ruby", "Selena", "Tigreal", "Valir", "Vexana", "Yve", "Zhuxin",
+]);
+const frontlineHeroes = new Set([
+  "Akai", "Alice", "Atlas", "Barats", "Baxia", "Belerick", "Edith", "Fredrinn", "Gatotkaca",
+  "Gloo", "Grock", "Hilda", "Hylos", "Khufra", "Lolita", "Minotaur", "Ruby", "Terizla",
+  "Tigreal", "Uranus", "X.Borg", "Yu Zhong",
+]);
+const healingHeroes = new Set(["Angela", "Estes", "Floryn", "Rafaela", "Uranus", "Alpha", "Ruby", "Alice"]);
+const antiHealHeroes = new Set(["Baxia", "Valir", "Karrie", "Kimmy", "X.Borg"]);
+const magicDamageHeroes = new Set([
+  "Aamon", "Alice", "Aurora", "Cecilion", "Chang'e", "Cyclops", "Eudora", "Gord", "Harith",
+  "Harley", "Julian", "Kadita", "Kagura", "Kimmy", "Lunox", "Luo Yi", "Lylia", "Nana",
+  "Natan", "Novaria", "Odette", "Pharsa", "Valentina", "Vale", "Valir", "Vexana", "Xavier",
+  "Yve", "Zetian", "Zhask", "Zhuxin",
+]);
+const trueDamageHeroes = new Set(["Karrie", "X.Borg", "Alpha", "Baxia", "Lesley"]);
 
 let heroes = [
   {
@@ -906,12 +926,15 @@ applyCounterChart();
 const state = {
   enemies: [],
   allies: [],
-  bans: [],
+  allyBans: [],
+  enemyBans: [],
   allySlots: Object.fromEntries(teamRoles.map((role) => [role, null])),
   role: "Любая",
   metaOnly: false,
   activeSide: "enemies",
   search: "",
+  focusRole: null,
+  pendingRolePick: null,
 };
 
 const heroByName = new Map(heroes.map((hero) => [hero.name, hero]));
@@ -925,9 +948,11 @@ const localHeroPortraits = Object.fromEntries(
 
 const enemyPicks = document.querySelector("#enemyPicks");
 const allyPicks = document.querySelector("#allyPicks");
-const banPicks = document.querySelector("#banPicks");
+const allyBanPicks = document.querySelector("#allyBanPicks");
+const enemyBanPicks = document.querySelector("#enemyBanPicks");
 const allySlots = document.querySelector("#allySlots");
 const recommendations = document.querySelector("#recommendations");
+const banRecommendations = document.querySelector("#banRecommendations");
 const roleFilter = document.querySelector("#roleFilter");
 const draftSummary = document.querySelector("#draftSummary");
 const metaOnlyToggle = document.querySelector("#metaOnlyToggle");
@@ -936,11 +961,21 @@ const heroGrid = document.querySelector("#heroGrid");
 const pickerTitle = document.querySelector("#pickerTitle");
 const draftScore = document.querySelector("#draftScore");
 const autoBuildBtn = document.querySelector("#autoBuildBtn");
+const autoBanBtn = document.querySelector("#autoBanBtn");
+const teamInsights = document.querySelector("#teamInsights");
+const shareDraftBtn = document.querySelector("#shareDraftBtn");
+const shareStatus = document.querySelector("#shareStatus");
+const roleDialog = document.querySelector("#roleDialog");
+const roleDialogHero = document.querySelector("#roleDialogHero");
+const roleDialogOptions = document.querySelector("#roleDialogOptions");
+const roleDialogCancel = document.querySelector("#roleDialogCancel");
 let imageObserver = null;
 let imageHydrationTimer = null;
+const loadedImageUrls = new Set();
 
 function init() {
   setAppStatus("JS запущен, рисую интерфейс...");
+  loadDraftFromUrl();
   renderRoleFilter();
   bindEvents();
   render();
@@ -956,6 +991,65 @@ function setAppStatus(message, tone = "ready") {
     appStatus.className = `app-status ${tone}`;
   }
   if (appVersion) appVersion.textContent = `v${APP_VERSION}`;
+}
+
+function loadDraftFromUrl() {
+  const hash = window.location.hash || "";
+  if (!hash.startsWith("#draft=")) return;
+
+  try {
+    const payload = JSON.parse(decodeURIComponent(atob(hash.slice(7))));
+    const knownNames = new Set(heroes.map((hero) => hero.name));
+    const cleanList = (items, limit = 5) =>
+      Array.isArray(items)
+        ? uniqueList(items.filter((name) => knownNames.has(name))).slice(0, limit)
+        : [];
+
+    state.enemies = cleanList(payload.enemies);
+    state.allies = cleanList(payload.allies);
+    state.allyBans = cleanList(payload.allyBans);
+    state.enemyBans = cleanList(payload.enemyBans);
+    state.allySlots = Object.fromEntries(teamRoles.map((role) => [role, null]));
+
+    if (payload.allySlots && typeof payload.allySlots === "object") {
+      teamRoles.forEach((role) => {
+        const name = payload.allySlots[role];
+        if (state.allies.includes(name) && heroByName.get(name)?.roles.includes(role)) {
+          state.allySlots[role] = name;
+        }
+      });
+    }
+  } catch (error) {
+    setAppStatus("Не смог прочитать драфт из ссылки", "warn");
+  }
+}
+
+function getDraftPayload() {
+  return {
+    enemies: state.enemies,
+    allies: state.allies,
+    allyBans: state.allyBans,
+    enemyBans: state.enemyBans,
+    allySlots: state.allySlots,
+  };
+}
+
+async function shareDraft() {
+  const encoded = btoa(encodeURIComponent(JSON.stringify(getDraftPayload())));
+  const url = `${window.location.origin}${window.location.pathname}#draft=${encoded}`;
+
+  try {
+    await navigator.clipboard.writeText(url);
+    shareStatus.textContent = "Ссылка скопирована";
+  } catch (error) {
+    window.location.hash = `draft=${encoded}`;
+    shareStatus.textContent = "Ссылка в адресной строке";
+  }
+
+  window.history.replaceState(null, "", url);
+  setTimeout(() => {
+    shareStatus.textContent = "";
+  }, 2200);
 }
 
 function applyCounterChart() {
@@ -996,7 +1090,7 @@ function renderRoleFilter() {
 }
 
 function getRoleCount(role) {
-  const picked = new Set([...state.enemies, ...state.allies, ...state.bans]);
+  const picked = new Set([...state.enemies, ...state.allies, ...getAllBans()]);
   return heroes.filter((hero) => {
     if (picked.has(hero.name)) return false;
     if (role !== "Любая" && !hero.roles.includes(role)) return false;
@@ -1012,12 +1106,15 @@ function bindEvents() {
   document.querySelector("#resetBtn").addEventListener("click", () => {
     state.enemies = [];
     state.allies = [];
-    state.bans = [];
+    state.allyBans = [];
+    state.enemyBans = [];
     state.allySlots = Object.fromEntries(teamRoles.map((role) => [role, null]));
     state.role = "Любая";
     state.metaOnly = false;
     state.activeSide = "enemies";
     state.search = "";
+    state.focusRole = null;
+    state.pendingRolePick = null;
     metaOnlyToggle.checked = false;
     heroSearch.value = "";
     render();
@@ -1026,14 +1123,16 @@ function bindEvents() {
   document.querySelectorAll(".side-button").forEach((button) => {
     button.addEventListener("click", () => {
       state.activeSide = button.dataset.side;
+      state.focusRole = null;
       render();
     });
   });
 
   roleFilter.addEventListener("click", (event) => {
-    const role = event.target.dataset.role;
+    const role = event.target.closest("[data-role]")?.dataset.role;
     if (!role) return;
     state.role = role;
+    state.focusRole = role === "Любая" ? null : role;
     render();
   });
   metaOnlyToggle.addEventListener("change", (event) => {
@@ -1053,8 +1152,34 @@ function bindEvents() {
   });
 
   autoBuildBtn.addEventListener("click", autoBuildDraft);
+  autoBanBtn.addEventListener("click", autoBanDraft);
+  shareDraftBtn.addEventListener("click", shareDraft);
+  banRecommendations.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-ban-name]");
+    if (!button) return;
+    addPick("allyBans", button.dataset.banName);
+  });
+
+  roleDialogOptions.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-pick-role]");
+    if (!button || !state.pendingRolePick) return;
+    addAllyPick(state.pendingRolePick, button.dataset.pickRole);
+    closeRoleDialog();
+    render();
+  });
+
+  roleDialogCancel.addEventListener("click", () => {
+    closeRoleDialog();
+    renderHeroGrid();
+  });
 
   allySlots.addEventListener("click", (event) => {
+    const suggestRole = event.target.closest("[data-suggest-role]")?.dataset.suggestRole;
+    if (suggestRole) {
+      focusRecommendationsForRole(suggestRole);
+      return;
+    }
+
     const role = event.target.dataset.clearRole;
     if (!role) return;
     const name = state.allySlots[role];
@@ -1072,15 +1197,27 @@ function bindEvents() {
 }
 
 function addPick(side, name) {
-  if (state[side].includes(name)) return;
+  if (!state[side] || state[side].includes(name)) return;
   if (isUnavailable(name)) return;
-  if (state[side].length >= (side === "bans" ? 10 : 5)) return;
+  if (state[side].length >= 5) return;
+  if (side === "allies") {
+    const hero = heroByName.get(name);
+    if (!hero) return;
+    const preferredRole = state.role !== "Любая" && hero.roles.includes(state.role) ? state.role : null;
+    if (!preferredRole && hero.roles.filter((role) => teamRoles.includes(role)).length > 1) {
+      openRoleDialog(name);
+      return;
+    }
+    addAllyPick(name, preferredRole);
+    render();
+    return;
+  }
   state[side].push(name);
-  if (side === "allies") assignAllySlot(name);
   render();
 }
 
 function removePick(side, name) {
+  if (!state[side]) return;
   state[side] = state[side].filter((pick) => pick !== name);
   if (side === "allies") {
     teamRoles.forEach((role) => {
@@ -1091,13 +1228,49 @@ function removePick(side, name) {
 }
 
 function isUnavailable(name) {
-  return state.enemies.includes(name) || state.allies.includes(name) || state.bans.includes(name);
+  return state.enemies.includes(name) || state.allies.includes(name) || getAllBans().includes(name);
 }
 
-function assignAllySlot(name) {
+function getAllBans() {
+  return [...state.allyBans, ...state.enemyBans];
+}
+
+function addAllyPick(name, selectedRole = null) {
+  if (state.allies.includes(name) || state.allies.length >= 5 || isUnavailable(name)) return;
+  state.allies.push(name);
+  assignAllySlot(name, selectedRole);
+}
+
+function openRoleDialog(name) {
   const hero = heroByName.get(name);
   if (!hero) return;
-  const targetRole = hero.roles.find((role) => teamRoles.includes(role) && !state.allySlots[role]);
+  state.pendingRolePick = name;
+  roleDialogHero.textContent = name;
+  roleDialogOptions.innerHTML = hero.roles
+    .filter((role) => teamRoles.includes(role))
+    .map(
+      (role) =>
+        `<button class="segment role-choice" type="button" data-pick-role="${role}">
+          <span>${role}</span>
+          <em>${state.allySlots[role] ? "заменит слот" : "свободно"}</em>
+        </button>`,
+    )
+    .join("");
+  roleDialog.classList.remove("hidden");
+}
+
+function closeRoleDialog() {
+  state.pendingRolePick = null;
+  roleDialog.classList.add("hidden");
+}
+
+function assignAllySlot(name, selectedRole = null) {
+  const hero = heroByName.get(name);
+  if (!hero) return;
+  const targetRole =
+    selectedRole && hero.roles.includes(selectedRole)
+      ? selectedRole
+      : hero.roles.find((role) => teamRoles.includes(role) && !state.allySlots[role]);
   if (targetRole) state.allySlots[targetRole] = name;
 }
 
@@ -1121,10 +1294,20 @@ function setAllySlot(role, name) {
   render();
 }
 
+function focusRecommendationsForRole(role) {
+  if (!teamRoles.includes(role)) return;
+  state.focusRole = role;
+  state.role = role;
+  state.activeSide = "allies";
+  state.search = "";
+  heroSearch.value = "";
+  render();
+}
+
 function autoBuildDraft() {
   const nextAllies = [];
   const nextSlots = Object.fromEntries(teamRoles.map((role) => [role, null]));
-  const unavailable = new Set([...state.enemies, ...state.bans]);
+  const unavailable = new Set([...state.enemies, ...getAllBans()]);
 
   teamRoles.forEach((role) => {
     const best = heroes
@@ -1145,6 +1328,25 @@ function autoBuildDraft() {
   render();
 }
 
+function autoBanDraft() {
+  const unavailable = new Set([...state.enemies, ...state.allies, ...getAllBans()]);
+  const slotsLeft = Math.max(0, 5 - state.allyBans.length);
+  if (!slotsLeft) return;
+
+  getBanRecommendations(12)
+    .map((item) => item.hero.name)
+    .filter((name) => !unavailable.has(name))
+    .slice(0, slotsLeft)
+    .forEach((name) => {
+      if (!state.allyBans.includes(name) && state.allyBans.length < 5) {
+        state.allyBans.push(name);
+        unavailable.add(name);
+      }
+    });
+
+  render();
+}
+
 function scoreHeroForDraft(hero, plannedAllies = []) {
   const base = scoreHero(hero).score;
   const rolePenalty = plannedAllies.some((name) => heroByName.get(name)?.roles.some((role) => hero.roles.includes(role)))
@@ -1159,13 +1361,16 @@ function scoreHeroForDraft(hero, plannedAllies = []) {
 function render() {
   renderRoleFilter();
   renderSideMode();
-  renderChips(banPicks, "bans");
+  renderChips(allyBanPicks, "allyBans");
+  renderChips(enemyBanPicks, "enemyBans");
   renderChips(enemyPicks, "enemies");
   renderChips(allyPicks, "allies");
   renderAllySlots();
   renderHeroGrid();
   renderDraftScore();
+  renderBanRecommendations();
   renderRecommendations();
+  renderTeamInsights();
   scheduleImageHydration();
 }
 
@@ -1178,7 +1383,9 @@ function renderSideMode() {
       ? "Добавить героя врага"
       : state.activeSide === "allies"
         ? "Добавить нашего героя"
-        : "Забанить героя";
+        : state.activeSide === "allyBans"
+          ? "Добавить наш бан"
+          : "Добавить бан врага";
 }
 
 function renderChips(container, side) {
@@ -1206,7 +1413,7 @@ function renderChips(container, side) {
 }
 
 function renderHeroGrid() {
-  const picked = new Set([...state.enemies, ...state.allies, ...state.bans]);
+  const picked = new Set([...state.enemies, ...state.allies, ...getAllBans()]);
   const filtered = heroes
     .filter((hero) => state.role === "Любая" || hero.roles.includes(state.role))
     .filter((hero) => !state.metaOnly || ["S", "A"].includes(hero.tier))
@@ -1218,7 +1425,7 @@ function renderHeroGrid() {
     });
 
   heroGrid.innerHTML = filtered
-    .map((hero) => renderHeroTile(hero, picked.has(hero.name), state.bans.includes(hero.name)))
+    .map((hero) => renderHeroTile(hero, picked.has(hero.name), getAllBans().includes(hero.name)))
     .join("");
 }
 
@@ -1255,7 +1462,10 @@ function renderAllySlots() {
               )
               .join("")}
           </select>
-          ${name ? `<button type="button" data-clear-role="${role}" aria-label="Очистить ${role}">x</button>` : "<em>-</em>"}
+          <button class="slot-suggest" type="button" data-suggest-role="${role}" aria-label="Подобрать героя на ${role}">
+            Подбор
+          </button>
+          ${name ? `<button class="slot-clear" type="button" data-clear-role="${role}" aria-label="Очистить ${role}">x</button>` : ""}
         </div>
       `;
     })
@@ -1277,12 +1487,14 @@ function getHeroImageUrl(name) {
 
 function renderLazyImage(className, name) {
   const classAttr = className ? ` class="${className}"` : "";
-  return `<img${classAttr} data-src="${getHeroImageUrl(name)}" alt="" decoding="async" onerror="this.remove()" />`;
+  const url = getHeroImageUrl(name);
+  const sourceAttr = loadedImageUrls.has(url) ? `src="${url}"` : `data-src="${url}"`;
+  return `<img${classAttr} ${sourceAttr} alt="" decoding="async" onload="this.dataset.loaded='true'" onerror="this.remove()" />`;
 }
 
 function scheduleImageHydration() {
   clearTimeout(imageHydrationTimer);
-  imageHydrationTimer = setTimeout(hydrateVisibleImages, 1800);
+  imageHydrationTimer = setTimeout(hydrateVisibleImages, loadedImageUrls.size ? 60 : 450);
 }
 
 function hydrateVisibleImages() {
@@ -1313,6 +1525,7 @@ function hydrateVisibleImages() {
 function loadImage(image) {
   if (!image.dataset.src) return;
   image.src = image.dataset.src;
+  loadedImageUrls.add(image.dataset.src);
   image.removeAttribute("data-src");
 }
 
@@ -1527,7 +1740,7 @@ function getMatchupDetails(extraAllyName = null) {
 }
 
 function getCounterOptions(enemyName, excludeNames = []) {
-  const excluded = new Set([...excludeNames, ...state.enemies, ...state.bans]);
+  const excluded = new Set([...excludeNames, ...state.enemies, ...getAllBans()]);
   return heroes
     .filter((hero) => !excluded.has(hero.name))
     .filter(
@@ -1692,6 +1905,26 @@ function getStageLabel(stages) {
   return ordered[0][2];
 }
 
+function hasControl(hero) {
+  return controlHeroes.has(hero.name) || hero.roles.includes("Roam");
+}
+
+function hasFrontline(hero) {
+  return frontlineHeroes.has(hero.name) || hero.roles.includes("Roam");
+}
+
+function getDamageProfile(team) {
+  return team.reduce(
+    (profile, hero) => {
+      if (trueDamageHeroes.has(hero.name)) profile.trueDamage += 1;
+      else if (magicDamageHeroes.has(hero.name)) profile.magic += 1;
+      else profile.physical += 1;
+      return profile;
+    },
+    { physical: 0, magic: 0, trueDamage: 0 },
+  );
+}
+
 function average(values, fallback) {
   if (!values.length) return fallback;
   return values.reduce((sum, value) => sum + value, 0) / values.length;
@@ -1714,22 +1947,139 @@ function getWinLabel(win) {
 }
 
 function renderRecommendations() {
-  const picked = new Set([...state.enemies, ...state.allies, ...state.bans]);
+  const picked = new Set([...state.enemies, ...state.allies, ...getAllBans()]);
+  const targetRole = state.focusRole || (state.role !== "Любая" ? state.role : null);
   const scored = heroes
     .filter((hero) => !picked.has(hero.name))
-    .filter((hero) => state.role === "Любая" || hero.roles.includes(state.role))
+    .filter((hero) => !targetRole || hero.roles.includes(targetRole))
     .filter((hero) => !state.metaOnly || ["S", "A"].includes(hero.tier))
     .map(scoreHero)
     .sort((a, b) => b.score - a.score)
     .slice(0, 8);
 
-  draftSummary.textContent = state.enemies.length
+  draftSummary.textContent = targetRole
+    ? `Подбор на ${targetRole}: учитываю врагов, баны и уже выбранных союзников.`
+    : state.enemies.length
     ? `Считаю против: ${state.enemies.join(", ")}`
-    : state.bans.length
-      ? `Исключаю баны: ${state.bans.join(", ")}`
+    : getAllBans().length
+      ? `Исключаю баны: ${getAllBans().join(", ")}`
       : "Добавь вражеских героев, и рекомендации станут точнее.";
 
   recommendations.innerHTML = scored.map(renderHeroCard).join("");
+}
+
+function renderBanRecommendations() {
+  const items = getBanRecommendations();
+  banRecommendations.innerHTML = `
+    <div class="ban-head">
+      <div>
+        <h3>Кого лучше банить</h3>
+        <span>${state.allyBans.length}/5 наших банов</span>
+      </div>
+      <p>Советы считаются от наших героев и общей силы меты.</p>
+    </div>
+    <div class="ban-grid">
+      ${items.map(renderBanCard).join("")}
+    </div>
+  `;
+}
+
+function getBanRecommendations(limit = 4) {
+  const unavailable = new Set([...state.enemies, ...state.allies, ...getAllBans()]);
+  return heroes
+    .filter((hero) => !unavailable.has(hero.name))
+    .map((hero) => {
+      const reasons = [];
+      let score = hero.meta;
+
+      state.allies.forEach((allyName) => {
+        const weight = getCounterWeight(hero.name, allyName);
+        const ally = heroByName.get(allyName);
+        if (weight || ally?.weakInto.includes(hero.name)) {
+          score += (weight || 72) / 3.8;
+          reasons.push(`${hero.name} опасен для ${allyName}`);
+        }
+      });
+
+      state.enemies.forEach((enemyName) => {
+        const enemy = heroByName.get(enemyName);
+        if (hero.synergies.includes(enemyName) || enemy?.synergies.includes(hero.name)) {
+          score += 9;
+          reasons.push(`усиливает ${enemyName}`);
+        }
+      });
+
+      if (!reasons.length) reasons.push(`сильный ${hero.tier}-tier в мете`);
+      return { hero, score, reasons };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+}
+
+function renderBanCard(item) {
+  return `
+    <button class="ban-card" type="button" data-ban-name="${item.hero.name}" ${state.allyBans.length >= 5 ? "disabled" : ""}>
+      ${renderLazyImage("chip-avatar", item.hero.name)}
+      <span>
+        <strong>${item.hero.name}</strong>
+        <em>${item.reasons.slice(0, 2).join(" · ")}</em>
+      </span>
+    </button>
+  `;
+}
+
+function renderTeamInsights() {
+  const insights = getTeamInsights();
+  teamInsights.innerHTML = `
+    <div class="insights-head">
+      <h3>Анализ состава</h3>
+      <span>${state.allies.length}/5 героев</span>
+    </div>
+    <div class="insight-grid">
+      ${insights.map(renderInsight).join("")}
+    </div>
+  `;
+}
+
+function renderInsight(item) {
+  return `
+    <div class="insight ${item.tone}">
+      <strong>${item.title}</strong>
+      <span>${item.text}</span>
+    </div>
+  `;
+}
+
+function getTeamInsights() {
+  const allyHeroes = state.allies.map((name) => heroByName.get(name)).filter(Boolean);
+  const enemyHeroes = state.enemies.map((name) => heroByName.get(name)).filter(Boolean);
+  const assignedRoles = new Set(Object.entries(state.allySlots).filter(([, name]) => name).map(([role]) => role));
+  const missingRoles = teamRoles.filter((role) => !assignedRoles.has(role));
+  const ccCount = allyHeroes.filter(hasControl).length;
+  const frontCount = allyHeroes.filter(hasFrontline).length;
+  const antiHealNeed = enemyHeroes.some((hero) => healingHeroes.has(hero.name));
+  const antiHealAnswer = allyHeroes.some((hero) => antiHealHeroes.has(hero.name));
+  const damage = getDamageProfile(allyHeroes);
+  const stages = getDraftStageProfile(state.allies, state.enemies);
+
+  return [
+    missingRoles.length
+      ? { tone: "warn", title: "Роли", text: `Не закрыто: ${missingRoles.join(", ")}` }
+      : { tone: "good", title: "Роли", text: "Все 5 ролей закрыты" },
+    ccCount >= 2
+      ? { tone: "good", title: "Контроль", text: `Есть ${ccCount} героя с контролем` }
+      : { tone: "bad", title: "Контроль", text: "Мало надежного контроля" },
+    frontCount >= 1
+      ? { tone: "good", title: "Фронтлайн", text: `Есть ${frontCount} герой для входа/впитывания` }
+      : { tone: "warn", title: "Фронтлайн", text: "Некому начинать драку или держать линию" },
+    damage.physical >= 3 || damage.magic >= 3
+      ? { tone: "warn", title: "Урон", text: `Перекос: ${damage.physical} физ / ${damage.magic} маг` }
+      : { tone: "good", title: "Урон", text: `${damage.physical} физ / ${damage.magic} маг / ${damage.trueDamage} true` },
+    antiHealNeed && !antiHealAnswer
+      ? { tone: "bad", title: "Anti-heal", text: "Врагу нужен ответ на лечение" }
+      : { tone: "good", title: "Anti-heal", text: antiHealNeed ? "Ответ на лечение есть" : "Критичной угрозы лечения нет" },
+    { tone: stages.late < 45 ? "warn" : "good", title: "План игры", text: stages.label },
+  ];
 }
 
 function scoreHero(hero) {

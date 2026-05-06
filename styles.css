@@ -232,6 +232,10 @@ button {
   margin-bottom: 16px;
 }
 
+.side-toggle-wide {
+  grid-template-columns: repeat(2, 1fr);
+}
+
 .side-button {
   border: 1px solid var(--line);
   background: var(--panel-2);
@@ -351,7 +355,7 @@ button {
 
 .role-slot {
   display: grid;
-  grid-template-columns: 58px minmax(0, 1fr) auto;
+  grid-template-columns: 58px minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 8px;
   min-height: 42px;
@@ -393,7 +397,17 @@ button {
   font-style: normal;
 }
 
-.role-slot button {
+.slot-suggest {
+  min-height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent);
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.slot-clear {
   width: 26px;
   min-height: 26px;
   border: 1px solid var(--line);
@@ -401,6 +415,12 @@ button {
   background: transparent;
   color: var(--danger);
   padding: 0;
+}
+
+.draft-actions {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 18px;
 }
 
 .chips {
@@ -451,6 +471,152 @@ button {
 .recommendations {
   display: grid;
   gap: 12px;
+}
+
+.ban-recommendations {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #111418;
+  padding: 12px;
+}
+
+.ban-head {
+  display: grid;
+  gap: 5px;
+}
+
+.ban-head div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ban-head h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 15px;
+  text-transform: none;
+}
+
+.ban-head span,
+.ban-head p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.ban-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.ban-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--text);
+  padding: 8px;
+  text-align: left;
+}
+
+.ban-card:hover {
+  border-color: var(--danger);
+}
+
+.ban-card:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ban-card span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.ban-card strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ban-card em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.25;
+}
+
+.team-insights {
+  margin-top: 14px;
+}
+
+.insights-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.insights-head h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 15px;
+  text-transform: none;
+}
+
+.insights-head span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.insight-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.insight {
+  display: grid;
+  gap: 5px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  padding: 10px;
+}
+
+.insight strong {
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.insight span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.insight.good strong {
+  color: var(--accent);
+}
+
+.insight.warn strong {
+  color: var(--accent-2);
+}
+
+.insight.bad strong {
+  color: var(--danger);
 }
 
 .hero-grid {
@@ -843,6 +1009,71 @@ button {
   align-content: center;
 }
 
+.role-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  background: rgba(7, 9, 12, 0.68);
+  padding: 18px;
+}
+
+.role-dialog.hidden {
+  display: none;
+}
+
+.role-dialog-card {
+  display: grid;
+  gap: 14px;
+  width: min(420px, 100%);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  padding: 18px;
+}
+
+.role-dialog-card div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.role-dialog-card span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.role-dialog-card strong {
+  color: var(--text);
+  font-size: 22px;
+}
+
+.role-dialog-options {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.role-choice {
+  display: grid;
+  gap: 3px;
+  min-height: 58px;
+  color: var(--text);
+}
+
+.role-choice span {
+  color: inherit;
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.role-choice em {
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+}
+
 @media (max-width: 860px) {
   .topbar,
   .data-panel {
@@ -883,6 +1114,19 @@ button {
 
   .matchup-summary {
     grid-template-columns: 1fr;
+  }
+
+  .insight-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .role-slot {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+
+  .slot-suggest,
+  .slot-clear {
+    width: 100%;
   }
 
   .score {

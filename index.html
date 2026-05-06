@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MLBB Draft Helper</title>
-    <link rel="stylesheet" href="styles.css?v=20260506-6" />
+    <link rel="stylesheet" href="styles.css?v=20260506-11" />
   </head>
   <body>
     <main class="app-shell">
@@ -16,7 +16,7 @@
         <div class="meta-pill">
           <span>Мета</span>
           <strong>май 2026</strong>
-          <em id="appVersion">v2026.05.06.6</em>
+          <em id="appVersion">v2026.05.06.11</em>
         </div>
       </header>
 
@@ -33,7 +33,7 @@
             </button>
           </div>
 
-          <div class="side-toggle" aria-label="Куда добавить героя">
+          <div class="side-toggle side-toggle-wide" aria-label="Куда добавить героя">
             <button
               id="enemyModeBtn"
               class="side-button active"
@@ -54,9 +54,17 @@
               id="banModeBtn"
               class="side-button"
               type="button"
-              data-side="bans"
+              data-side="allyBans"
             >
-              Бан
+              Наш бан
+            </button>
+            <button
+              id="enemyBanModeBtn"
+              class="side-button"
+              type="button"
+              data-side="enemyBans"
+            >
+              Бан врага
             </button>
           </div>
 
@@ -80,10 +88,21 @@
             <span>Показывать только метовых героев</span>
           </label>
 
+          <div class="draft-actions">
+            <button id="shareDraftBtn" class="ghost-button" type="button">
+              Ссылка на драфт
+            </button>
+            <span id="shareStatus" class="muted"></span>
+          </div>
+
           <div class="picked-grid">
             <div>
-              <h3>Баны</h3>
-              <div id="banPicks" class="chips"></div>
+              <h3>Наши баны</h3>
+              <div id="allyBanPicks" class="chips"></div>
+            </div>
+            <div>
+              <h3>Баны врага</h3>
+              <div id="enemyBanPicks" class="chips"></div>
             </div>
             <div>
               <h3>Враги</h3>
@@ -122,12 +141,30 @@
             <button id="autoBuildBtn" class="ghost-button" type="button">
               Автопик
             </button>
+            <button id="autoBanBtn" class="ghost-button" type="button">
+              Автобан
+            </button>
           </div>
 
           <div id="draftScore" class="draft-score"></div>
+          <div id="banRecommendations" class="ban-recommendations"></div>
           <div id="recommendations" class="recommendations"></div>
+          <div id="teamInsights" class="team-insights"></div>
         </section>
       </section>
+
+      <div id="roleDialog" class="role-dialog hidden" aria-live="polite">
+        <div class="role-dialog-card">
+          <div>
+            <span>Выбери роль</span>
+            <strong id="roleDialogHero">Hero</strong>
+          </div>
+          <div id="roleDialogOptions" class="role-dialog-options"></div>
+          <button id="roleDialogCancel" class="ghost-button" type="button">
+            Отмена
+          </button>
+        </div>
+      </div>
 
       <section class="panel data-panel">
         <div>
@@ -152,7 +189,7 @@
     </main>
 
     <script>
-      window.MLBB_APP_VERSION = "2026.05.06.6";
+      window.MLBB_APP_VERSION = "2026.05.06.11";
       window.addEventListener("error", function (event) {
         var status = document.getElementById("appStatus");
         if (!status) return;
@@ -168,6 +205,6 @@
         status.className = "app-status warn";
       }, 5000);
     </script>
-    <script src="app.js?v=20260506-6" defer></script>
+    <script src="app.js?v=20260506-11" defer></script>
   </body>
 </html>
