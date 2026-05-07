@@ -14,9 +14,11 @@ import {
   getBanRecommendations,
   getBuild,
   getDraftChecklist,
+  getHeroGamePlan,
   getHeroMatchups,
   getHeroStageScores,
   getRecommendations,
+  getTeamGamePlan,
   heroByName,
   heroImage,
   itemImage,
@@ -455,6 +457,7 @@ function DraftView({
   const slotAggressive =
     [...slotRecommendations].sort((a, b) => b.directCounters.length - a.directCounters.length || b.score - a.score)[0] ?? slotBest;
   const slotPool = slotRecommendations.find((item) => ["strong", "medium"].includes(pool[item.hero.name] || "none")) ?? slotBest;
+  const teamPlan = getTeamGamePlan(draft);
   const compareItems = compareNames
     .map((name) => heroByName.get(name))
     .filter(Boolean)
@@ -539,6 +542,7 @@ function DraftView({
         </CardHeader>
         <CardContent className="grid gap-4">
           <DraftScore recommendations={recommendations} />
+          <TeamPlanBox plan={teamPlan} />
           <SlotPicker
             role={slotRole}
             onRole={setSlotRole}
@@ -597,6 +601,32 @@ function DraftView({
 }
 
 type RecommendationItem = ReturnType<typeof getRecommendations>[number];
+
+function TeamPlanBox({ plan }: { plan: ReturnType<typeof getTeamGamePlan> }) {
+  const rows = [
+    { label: "Стиль", value: plan.style },
+    { label: "Инициация", value: plan.engage },
+    { label: "Урон", value: plan.damage },
+    { label: "Защита", value: plan.protect },
+    { label: "Следующий пик", value: plan.nextPick },
+  ];
+  return (
+    <div className="grid gap-3 rounded-lg border border-border bg-background p-3">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="font-black">Командный план</h3>
+        <Badge className="border-primary/40 text-primary">сила: {plan.strongestStage}</Badge>
+      </div>
+      <div className="grid gap-2">
+        {rows.map((row) => (
+          <div key={row.label} className="rounded-md border border-border bg-secondary p-2">
+            <p className="text-xs font-black uppercase text-muted-foreground">{row.label}</p>
+            <p className="text-sm">{row.value}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function SlotPicker({
   role,
@@ -840,6 +870,7 @@ function HeroesView({ search, selectedHero, pool, draft, onSearch, onSelect, onS
   const matchup = getHeroMatchups(selectedHero);
   const build = getBuild(selectedHero, draft);
   const stages = getHeroStageScores(selectedHero);
+  const gamePlan = getHeroGamePlan(selectedHero, draft);
   const currentEnemies = draft.enemies.filter((name) => selectedHero.counters.includes(name) || matchup.targets.includes(name));
   const currentThreats = draft.enemies.filter((name) => selectedHero.weakInto.includes(name));
   const selectedPool = pool[selectedHero.name] || "none";
@@ -910,6 +941,7 @@ function HeroesView({ search, selectedHero, pool, draft, onSearch, onSelect, onS
           <MatchupBox title="Кого закрывает" items={matchup.targets} tone="good" />
           <MatchupBox title="Опасные враги" items={matchup.dangers} tone="bad" />
           <MatchupBox title="Лучшие союзники" items={matchup.allies} tone="neutral" />
+          <HeroGamePlanBox plan={gamePlan} />
           <BuildBox hero={selectedHero} build={build} />
           <div className="rounded-lg border border-border bg-secondary p-3 text-sm text-muted-foreground">
             <p><span className="font-black text-foreground">Источник: </span>локальная база матчапов, pro/high-rank сигналы и ситуационные правила для билдов. Если точных pro-данных нет, сайт показывает паттерн, а не выдаёт его за 100% статистику.</p>
@@ -953,6 +985,40 @@ function StageProfile({ stages }: { stages: ReturnType<typeof getHeroStageScores
           <strong className="text-right">{row.value}</strong>
         </div>
       ))}
+    </div>
+  );
+}
+
+function HeroGamePlanBox({ plan }: { plan: ReturnType<typeof getHeroGamePlan> }) {
+  return (
+    <div className="grid gap-3 rounded-lg border border-primary/25 bg-background p-3">
+      <div>
+        <h3 className="font-black">План игры</h3>
+        <p className="mt-1 text-sm text-muted-foreground">{plan.winCondition}</p>
+      </div>
+      <div className="grid gap-2">
+        <p className="text-xs font-black uppercase text-muted-foreground">По минутам</p>
+        {plan.timeline.map((step) => (
+          <div key={step.timing} className="grid grid-cols-[70px_1fr] gap-2 rounded-md border border-border bg-secondary p-2 text-sm">
+            <strong className="text-primary">{step.timing}</strong>
+            <span className="text-muted-foreground">{step.task}</span>
+          </div>
+        ))}
+      </div>
+      <div className="grid gap-2">
+        <p className="text-xs font-black uppercase text-muted-foreground">Цели по предметам</p>
+        {plan.itemGoals.map((goal) => (
+          <p key={goal} className="rounded-md border border-border bg-secondary p-2 text-sm text-muted-foreground">{goal}</p>
+        ))}
+      </div>
+      {plan.warnings.length ? (
+        <div className="grid gap-2">
+          <p className="text-xs font-black uppercase text-destructive">Предупреждения</p>
+          {plan.warnings.map((warning) => (
+            <p key={warning} className="rounded-md border border-destructive/35 bg-secondary p-2 text-sm text-muted-foreground">{warning}</p>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

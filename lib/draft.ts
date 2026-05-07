@@ -1,4 +1,4 @@
-import { counterChart, heroes, itemCatalog, type Hero, type Role } from "@/lib/mlbb-data";
+import { counterChart, heroes, itemCatalog, teamRoles, type Hero, type Role } from "@/lib/mlbb-data";
 import { getProBuildPlan, getProSignal } from "@/lib/pro-meta";
 import { slugify } from "@/lib/utils";
 
@@ -48,6 +48,22 @@ export type DraftInsight = {
   value: string;
   detail: string;
   tone: "good" | "bad" | "neutral";
+};
+
+export type HeroGamePlan = {
+  winCondition: string;
+  timeline: Array<{ timing: string; task: string }>;
+  warnings: string[];
+  itemGoals: string[];
+};
+
+export type TeamGamePlan = {
+  style: string;
+  strongestStage: string;
+  engage: string;
+  damage: string;
+  protect: string;
+  nextPick: string;
 };
 
 export const heroByName = new Map(heroes.map((hero) => [hero.name, hero]));
@@ -619,6 +635,150 @@ export function getHeroMatchups(hero: Hero) {
 
 export function getDraftInsights(state: DraftState) {
   return getDraftChecklist(state).map((insight) => `${insight.label}: ${insight.value}`);
+}
+
+export function getHeroGamePlan(hero: Hero, state: DraftState): HeroGamePlan {
+  const build = getBuild(hero, state);
+  const profile = getProfileKey(hero);
+  const stages = getHeroStageScores(hero);
+  const enemies = state.enemies.map((name) => heroByName.get(name)).filter(Boolean) as Hero[];
+  const hasControlThreat = enemies.some((enemy) => controlHeroes.has(enemy.name));
+  const hasHealThreat = enemies.some((enemy) => healingHeroes.has(enemy.name));
+  const hasFrontThreat = enemies.filter(hasFrontline).length >= 2;
+  const hasDiveThreat = enemies.some((enemy) => enemy.roles.includes("Jungle") || ["Chou", "Saber", "Hayabusa", "Fanny", "Ling", "Lancelot"].includes(enemy.name));
+
+  const strongestStage =
+    stages.early >= stages.mid && stages.early >= stages.late ? "ранний темп" : stages.mid >= stages.late ? "мидгейм" : "лейт";
+
+  const winConditionByProfile: Record<keyof typeof buildProfiles, string> = {
+    assassin: "сломать темп врага через быстрые ганги, забирать тонких керри и не давать им выйти в предметы",
+    burstMage: "играть от первого контроля, быстро удалять тонкую цель и открывать карту через мид",
+    mage: "держать дистанцию, чистить волны и выигрывать драки через poke/контроль",
+    marksman: "дожить до ключевых предметов, играть за фронтом и стабильно забирать Lord/Turtle",
+    critMarksman: "не отдавать линию до 2 предметов, затем играть через позиционку и лейт-урон",
+    fighter: "давить боковую линию, заходить вторым темпом и ломать строй врага",
+    sustainFighter: "затягивать драку, вынуждать врага тратить контроль и выигрывать на sustain",
+    tank: "открывать вижен, начинать драки только когда команда рядом и принимать первый урон",
+    support: "защищать главного керри, ловить момент для сейва/инициации и не отдавать позицию",
+  };
+
+  const timelineByProfile: Record<keyof typeof buildProfiles, Array<{ timing: string; task: string }>> = {
+    assassin: [
+      { timing: "0-2 мин", task: "забери быстрый jungle clear и проверь уязвимую боковую линию" },
+      { timing: "2-5 мин", task: "играй вокруг Turtle, заходи после траты контроля врага" },
+      { timing: "5-10 мин", task: "лови mage/gold до объектов, не трать ульт в плотный фронт" },
+      { timing: "10+ мин", task: "ищи flank и не показывайся первым на карте" },
+    ],
+    burstMage: [
+      { timing: "0-2 мин", task: "зачисти мид и помоги river/roam на первом движении" },
+      { timing: "2-5 мин", task: "играй от контроля на Turtle, цель - вражеский jungle или gold" },
+      { timing: "5-10 мин", task: "держи bush pressure и наказывай одиночные ротации" },
+      { timing: "10+ мин", task: "не входи без вижена, burst держи под главного керри" },
+    ],
+    mage: [
+      { timing: "0-2 мин", task: "не теряй волну, помогай river и защищай свой jungle вход" },
+      { timing: "2-5 мин", task: "poke перед Turtle важнее случайного all-in" },
+      { timing: "5-10 мин", task: "чисти mid wave первым и двигайся с roam" },
+      { timing: "10+ мин", task: "держи дистанцию и играй через зону перед Lord" },
+    ],
+    marksman: [
+      { timing: "0-2 мин", task: "играй линию без лишнего риска, важнее фарм и plate" },
+      { timing: "2-5 мин", task: "не приходи в драку без волны и безопасного пути отхода" },
+      { timing: "5-10 мин", task: "после 2 предметов подключайся к объектам за фронтом" },
+      { timing: "10+ мин", task: "ты главный DPS, не бей фронт без позиции и вижена" },
+    ],
+    critMarksman: [
+      { timing: "0-2 мин", task: "сохрани здоровье и добери ранний фарм" },
+      { timing: "2-5 мин", task: "играй от сейва roam, не принимай честный all-in без преимущества" },
+      { timing: "5-10 мин", task: "жми темп после первого crit power spike" },
+      { timing: "10+ мин", task: "играй вокруг Lord, твоя смерть почти всегда отдаёт объект" },
+    ],
+    fighter: [
+      { timing: "0-2 мин", task: "получи контроль линии и не отдай ранний freeze" },
+      { timing: "2-5 мин", task: "сдвигайся к Turtle, если wave под контролем" },
+      { timing: "5-10 мин", task: "ломай боковую башню или заходи вторым темпом в драку" },
+      { timing: "10+ мин", task: "держи flank на керри, не бей танка первым" },
+    ],
+    sustainFighter: [
+      { timing: "0-2 мин", task: "разменивайся коротко и не отдавай wave control" },
+      { timing: "2-5 мин", task: "в драке тяни время и заставляй врага тратить скиллы" },
+      { timing: "5-10 мин", task: "играй через split pressure и долгие skirmish" },
+      { timing: "10+ мин", task: "заходи после engage, когда контроль врага уже потрачен" },
+    ],
+    tank: [
+      { timing: "0-2 мин", task: "дай вижен jungle входов и помоги миду получить первую волну" },
+      { timing: "2-5 мин", task: "готовь позицию под Turtle заранее, не начинай без команды" },
+      { timing: "5-10 мин", task: "лови чужие ротации и защищай главного damage дилера" },
+      { timing: "10+ мин", task: "проверяй кусты перед Lord, engage только по ключевой цели" },
+    ],
+    support: [
+      { timing: "0-2 мин", task: "помоги миду/лесу и не оставляй gold без информации" },
+      { timing: "2-5 мин", task: "сейв спелл держи под первый burst врага" },
+      { timing: "5-10 мин", task: "играй рядом с самым сильным союзником" },
+      { timing: "10+ мин", task: "главная задача - не дать врагу добраться до carry" },
+    ],
+  };
+
+  const warnings = [
+    hasControlThreat ? "Не отдавай Purify/Flicker до ключевого контроля врага." : "",
+    hasDiveThreat ? "Следи за flank: у врага есть герой, который может быстро добраться до backline." : "",
+    hasHealThreat ? "Если враг играет через лечение, anti-heal нужен раньше обычного." : "",
+    hasFrontThreat ? "Против плотного фронта не затягивай пробивной предмет." : "",
+    hero.weakInto.length ? `Особенно осторожно против: ${hero.weakInto.slice(0, 3).join(", ")}.` : "",
+  ].filter(Boolean);
+
+  return {
+    winCondition: `${hero.name}: ${winConditionByProfile[profile]}. Самая сильная стадия - ${strongestStage}.`,
+    timeline: timelineByProfile[profile],
+    warnings,
+    itemGoals: build.items.slice(1, 5).map((item) => `${itemCatalog[item.id]?.ru || item.id}: ${item.reason}`),
+  };
+}
+
+export function getTeamGamePlan(state: DraftState): TeamGamePlan {
+  const allies = state.allies.map((name) => heroByName.get(name)).filter(Boolean) as Hero[];
+  const enemies = state.enemies.map((name) => heroByName.get(name)).filter(Boolean) as Hero[];
+  const stageTotals = allies.reduce(
+    (acc, hero) => {
+      const stages = getHeroStageScores(hero);
+      acc.early += stages.early;
+      acc.mid += stages.mid;
+      acc.late += stages.late;
+      return acc;
+    },
+    { early: 0, mid: 0, late: 0 },
+  );
+  const strongestStage =
+    stageTotals.early >= stageTotals.mid && stageTotals.early >= stageTotals.late ? "старт" : stageTotals.mid >= stageTotals.late ? "мидгейм" : "лейт";
+  const front = allies.find(hasFrontline);
+  const control = allies.find((hero) => controlHeroes.has(hero.name) || hero.roles.includes("Roam"));
+  const gold = allies.find((hero) => hero.roles.includes("Gold"));
+  const jungle = allies.find((hero) => hero.roles.includes("Jungle"));
+  const magicCount = allies.filter((hero) => magicDamageHeroes.has(hero.name)).length;
+  const physicalCount = Math.max(0, allies.length - magicCount);
+  const missingRoles = teamRoles.filter((role) => !allies.some((hero) => hero.roles.includes(role)));
+  const enemyHealing = enemies.some((hero) => healingHeroes.has(hero.name));
+
+  return {
+    style:
+      strongestStage === "старт"
+        ? "Играйте от раннего темпа: river, Turtle и быстрые ротации важнее пассивного фарма."
+        : strongestStage === "мидгейм"
+          ? "Пик раскрывается в мидгейме: дожмите первые предметы и навяжите драки за объекты."
+          : "Пик сильнее в лейте: избегайте случайных смертей до 2-3 предметов у керри.",
+    strongestStage,
+    engage: control ? `${control.name} должен задавать начало драки, остальные заходят после контроля.` : "Не хватает явного инициатора, лучше брать героя с hard CC или играть от counter-engage.",
+    damage:
+      magicCount === 0 || physicalCount === 0
+        ? "Урон выглядит однобоко, врагу проще купить защиту. Следующий пик лучше взять с другим типом урона."
+        : `Урон распределён нормально: ${physicalCount} физ / ${magicCount} маг.`,
+    protect: gold ? `Защищайте ${gold.name}: это главный стабильный DPS для объектов.` : jungle ? `Играйте вокруг ${jungle.name}: jungle сейчас главный темповый герой.` : front ? `Держитесь за ${front.name}: он открывает карту и принимает первый урон.` : "Назначьте, кого команда защищает в драке: сейчас главный carry неочевиден.",
+    nextPick: enemyHealing
+      ? "Против лечения врага заранее планируй anti-heal или героя, который давит sustain."
+      : missingRoles.length
+        ? `Следующий пик лучше закрыть под роль: ${missingRoles.join(", ")}.`
+        : "Роли закрыты, следующий пик выбирай по контрматчапу и комфорту из пула.",
+  };
 }
 
 export function getDraftChecklist(state: DraftState): DraftInsight[] {
