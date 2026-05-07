@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Ban, BookOpen, Boxes, Crosshair, RotateCcw, Search, Shield, Sparkles, Star, Swords, Users } from "lucide-react";
+import { Ban, BookOpen, Crosshair, Menu, RotateCcw, Search, Sparkles, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,12 +49,29 @@ const poolLabels: Record<PoolLevel, string> = {
   strong: "Сильно",
 };
 
+const views = [
+  { id: "draft", label: "Драфт", icon: Crosshair },
+  { id: "heroes", label: "Герои", icon: BookOpen },
+  { id: "pool", label: "Мой пул", icon: Users },
+  { id: "meta", label: "Мета", icon: Sparkles },
+] satisfies Array<{ id: View; label: string; icon: typeof Crosshair }>;
+
 export default function HomePage() {
   const [view, setView] = useState<View>("draft");
   const [draft, setDraft] = useState<DraftState>(emptyDraft);
   const [pool, setPool] = useState<Record<string, PoolLevel>>({});
   const [librarySearch, setLibrarySearch] = useState("");
   const [selectedHero, setSelectedHero] = useState(heroes[0]?.name ?? "");
+
+  useEffect(() => {
+    const readHash = () => {
+      const nextView = window.location.hash.replace("#", "") as View;
+      if (views.some((item) => item.id === nextView)) setView(nextView);
+    };
+    readHash();
+    window.addEventListener("hashchange", readHash);
+    return () => window.removeEventListener("hashchange", readHash);
+  }, []);
 
   useEffect(() => {
     try {
@@ -98,77 +115,120 @@ export default function HomePage() {
     });
   }
 
+  function navigate(nextView: View) {
+    setView(nextView);
+    window.history.replaceState(null, "", `#${nextView}`);
+  }
+
   return (
-    <main className="mx-auto w-full max-w-[1380px] px-4 py-6 lg:px-6">
-      <header className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="mb-2 text-xs font-black uppercase tracking-wide text-primary">Mobile Legends Draft Assistant</p>
-          <h1 className="text-4xl font-black leading-none tracking-normal sm:text-5xl lg:text-6xl">Контрпики и сбор пика</h1>
-        </div>
-        <Card className="w-full lg:w-[180px]">
-          <CardContent className="grid gap-1 p-4">
+    <main className="mx-auto w-full max-w-[1380px] px-3 py-4 sm:px-4 lg:px-6 lg:py-6">
+      <header className="sticky top-0 z-30 mb-5 rounded-lg border border-border bg-background/95 shadow-2xl shadow-black/20 backdrop-blur">
+        <div className="flex flex-col gap-4 p-3 sm:p-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="mb-2 text-xs font-black uppercase tracking-wide text-primary">Mobile Legends Draft Assistant</p>
+            <h1 className="text-3xl font-black leading-none tracking-normal sm:text-5xl lg:text-6xl">Контрпики и сбор пика</h1>
+          </div>
+          <div className="grid min-w-[150px] gap-1 rounded-lg border border-border bg-card px-4 py-3">
             <span className="text-xs text-muted-foreground">Мета</span>
             <strong>май 2026</strong>
             <span className="text-xs text-muted-foreground">v{appVersion}</span>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
+
+        <nav className="flex items-center gap-2 overflow-x-auto border-t border-border px-3 pb-3 sm:px-4">
+          <span className="hidden items-center gap-2 whitespace-nowrap pr-2 text-xs font-black uppercase text-muted-foreground sm:flex">
+            <Menu className="h-4 w-4" />
+            Разделы
+          </span>
+          {views.map((item) => (
+            <PageLink key={item.id} active={view === item.id} onClick={() => navigate(item.id)} icon={item.icon} label={item.label} href={`#${item.id}`} />
+          ))}
+        </nav>
       </header>
 
-      <nav className="mb-5 flex flex-wrap gap-2">
-        <NavButton active={view === "draft"} onClick={() => setView("draft")} icon={Crosshair} label="Драфт" />
-        <NavButton active={view === "heroes"} onClick={() => setView("heroes")} icon={BookOpen} label="Герои" />
-        <NavButton active={view === "pool"} onClick={() => setView("pool")} icon={Users} label="Мой пул" />
-        <NavButton active={view === "meta"} onClick={() => setView("meta")} icon={Sparkles} label="Мета" />
-      </nav>
-
       {view === "draft" && (
-        <DraftView
-          draft={draft}
-          pool={pool}
-          recommendations={recommendations}
-          bans={bans}
-          onPatch={patchDraft}
-          onAddPick={addPick}
-          onRemovePick={removePick}
-          onOpenHero={(name) => {
-            setSelectedHero(name);
-            setView("heroes");
-          }}
-          onReset={() => setDraft(emptyDraft)}
-        />
+        <PageWindow title="Драфт" description="Рабочее окно пиков, банов и рекомендаций.">
+          <DraftView
+            draft={draft}
+            pool={pool}
+            recommendations={recommendations}
+            bans={bans}
+            onPatch={patchDraft}
+            onAddPick={addPick}
+            onRemovePick={removePick}
+            onOpenHero={(name) => {
+              setSelectedHero(name);
+              navigate("heroes");
+            }}
+            onReset={() => setDraft(emptyDraft)}
+          />
+        </PageWindow>
       )}
 
       {view === "heroes" && (
-        <HeroesView
-          search={librarySearch}
-          selectedHero={selectedHeroData}
-          pool={pool}
-          draft={draft}
-          onSearch={setLibrarySearch}
-          onSelect={setSelectedHero}
-          onGoDraft={() => setView("draft")}
-        />
+        <PageWindow title="Герои" description="Отдельное окно базы героев, матчапов и быстрых билдов.">
+          <HeroesView
+            search={librarySearch}
+            selectedHero={selectedHeroData}
+            pool={pool}
+            draft={draft}
+            onSearch={setLibrarySearch}
+            onSelect={setSelectedHero}
+            onGoDraft={() => navigate("draft")}
+          />
+        </PageWindow>
       )}
 
-      {view === "pool" && <PoolView pool={pool} onSetPool={setPoolLevel} />}
+      {view === "pool" && (
+        <PageWindow title="Мой пул" description="Твои реальные герои, чтобы советы были практичными.">
+          <PoolView pool={pool} onSetPool={setPoolLevel} />
+        </PageWindow>
+      )}
       {view === "meta" && (
-        <MetaView
-          onSelect={(name) => {
-            setSelectedHero(name);
-            setView("heroes");
-          }}
-        />
+        <PageWindow title="Мета" description="Топы по ролям и быстрый переход в профиль героя.">
+          <MetaView
+            onSelect={(name) => {
+              setSelectedHero(name);
+              navigate("heroes");
+            }}
+          />
+        </PageWindow>
       )}
     </main>
   );
 }
 
-function NavButton({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: typeof Crosshair; label: string }) {
+function PageLink({ active, onClick, icon: Icon, label, href }: { active: boolean; onClick: () => void; icon: typeof Crosshair; label: string; href: string }) {
   return (
-    <Button variant={active ? "default" : "outline"} onClick={onClick} className="gap-2">
+    <a
+      href={href}
+      onClick={(event) => {
+        event.preventDefault();
+        onClick();
+      }}
+      className={cn(
+        "inline-flex min-h-10 shrink-0 items-center gap-2 rounded-md border px-4 text-sm font-black transition-colors",
+        active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
+      )}
+    >
       <Icon className="h-4 w-4" />
       {label}
-    </Button>
+    </a>
+  );
+}
+
+function PageWindow({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-lg border border-border bg-card/70 p-2 shadow-2xl shadow-black/20 sm:p-3">
+      <div className="mb-3 rounded-md border border-border bg-background/60 px-3 py-2 sm:px-4">
+        <span className="text-xs font-black uppercase tracking-wide text-primary">Окно</span>
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <h2 className="text-2xl font-black">{title}</h2>
+          <p className="text-sm text-muted-foreground">{description}</p>
+        </div>
+      </div>
+      {children}
+    </section>
   );
 }
 
@@ -223,7 +283,7 @@ function DraftView({
 
           <div>
             <p className="mb-2 text-sm font-bold text-muted-foreground">Роль</p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {roles.map((role) => (
                 <Button key={role} variant={draft.role === role ? "default" : "outline"} size="sm" onClick={() => onPatch({ role })}>
                   {role}
@@ -255,7 +315,7 @@ function DraftView({
           <CardDescription>Клик по герою добавляет его в выбранную сторону.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="scroll-soft grid max-h-[720px] grid-cols-3 gap-2 overflow-auto pr-1 sm:grid-cols-4 lg:grid-cols-3 2xl:grid-cols-4">
+          <div className="scroll-soft grid max-h-[68vh] grid-cols-2 gap-2 overflow-auto pr-1 sm:grid-cols-4 lg:max-h-[720px] lg:grid-cols-3 2xl:grid-cols-4">
             {filteredHeroes.map((hero) => (
               <HeroTile key={hero.name} hero={hero} disabled={unavailable.has(hero.name)} pool={pool[hero.name]} onClick={() => onAddPick(draft.activeSide, hero.name)} onInfo={() => onOpenHero(hero.name)} />
             ))}
@@ -336,7 +396,7 @@ function PickGroup({ title, side, items, onRemove, onOpenHero }: { title: string
 
 function HeroTile({ hero, disabled, pool, onClick, onInfo }: { hero: Hero; disabled: boolean; pool?: PoolLevel; onClick: () => void; onInfo: () => void }) {
   return (
-    <button type="button" disabled={disabled} onClick={onClick} className="relative grid min-h-[132px] gap-2 rounded-lg border border-border bg-secondary p-2 text-left transition hover:border-primary disabled:cursor-not-allowed disabled:opacity-40">
+    <button type="button" disabled={disabled} onClick={onClick} className="relative grid min-h-[124px] gap-2 rounded-lg border border-border bg-secondary p-2 text-left transition hover:border-primary disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-[132px]">
       <span
         role="button"
         tabIndex={0}
