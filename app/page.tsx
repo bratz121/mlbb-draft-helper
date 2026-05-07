@@ -160,7 +160,7 @@ export default function HomePage() {
           </div>
           <div className="col-span-2 rounded-md border border-border bg-background/55 p-2 lg:col-span-1">
             <span className="text-xs text-muted-foreground">Supabase</span>
-            <strong className={cn("block text-sm", dbStatus.state === "ready" && "text-primary", dbStatus.state === "error" && "text-destructive")}>{dbStatus.label}</strong>
+            <strong className={cn("block text-sm", dbStatus.state === "ready" && "text-primary", (dbStatus.state === "error" || dbStatus.state === "blocked") && "text-destructive")}>{dbStatus.label}</strong>
             <span className="block truncate text-xs text-muted-foreground" title={dbStatus.detail}>{dbStatus.detail}</span>
           </div>
         </div>
