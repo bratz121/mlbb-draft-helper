@@ -681,5 +681,5 @@ function HeroAvatar({ name, size }: { name: string; size: "xs" | "sm" | "md" | "
     lg: "h-16 w-full",
     xl: "h-20 w-20",
   };
-  return <img className={cn("rounded-md object-cover bg-muted", sizes[size])} src={heroImage(name)} alt="" onError={(event) => (event.currentTarget.style.display = "none")} />;
+  return <img className={cn("rounded-md object-cover bg-muted", sizes[size])} src={heroImage(name)} alt="" loading="lazy" decoding="async" onError={(event) => (event.currentTarget.style.display = "none")} />;
 }

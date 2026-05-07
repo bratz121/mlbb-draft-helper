@@ -125,8 +125,13 @@ const buildProfiles = {
 } as const;
 
 export function heroImage(name: string) {
-  const remote = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  return `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/assets/heroes/${remote}.jpg`;
+  const specialSlugs: Record<string, string> = {
+    "X.Borg": "xborg",
+  };
+  const pngHeroes = new Set(["Kalea", "Lukas", "Marcel", "Obsidia", "Sora", "Suyou", "Zetian"]);
+  const remote = specialSlugs[name] ?? name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const extension = pngHeroes.has(name) ? "png" : "jpg";
+  return `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/assets/heroes/${remote}.${extension}`;
 }
 
 export function itemImage(item: string) {
