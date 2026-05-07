@@ -1,5 +1,11 @@
 const roles = ["Любая", "Jungle", "EXP", "Mid", "Gold", "Roam"];
-const APP_VERSION = window.MLBB_APP_VERSION || "2026.05.06.18";
+const APP_VERSION = window.MLBB_APP_VERSION || "2026.05.07.01";
+const poolLevels = ["none", "medium", "strong"];
+const poolLabels = {
+  none: "Не играю",
+  medium: "Средне",
+  strong: "Сильно",
+};
 const teamRoles = ["Jungle", "EXP", "Mid", "Gold", "Roam"];
 const roleBadges = {
   Любая: { short: "All", label: "Все" },
@@ -1385,6 +1391,10 @@ const state = {
   metaOnly: false,
   activeSide: "enemies",
   search: "",
+  librarySearch: "",
+  activeView: "draft",
+  spotlightHero: null,
+  playerPool: loadPlayerPool(),
   focusRole: null,
   pendingRolePick: null,
 };
@@ -1425,13 +1435,34 @@ const roleDialogCancel = document.querySelector("#roleDialogCancel");
 const heroProfileDialog = document.querySelector("#heroProfileDialog");
 const heroProfileContent = document.querySelector("#heroProfileContent");
 const heroProfileClose = document.querySelector("#heroProfileClose");
+const navTabs = document.querySelectorAll(".nav-tab");
+const viewPanels = document.querySelectorAll("[data-view-panel]");
+const librarySearch = document.querySelector("#librarySearch");
+const heroLibrary = document.querySelector("#heroLibrary");
+const heroSpotlight = document.querySelector("#heroSpotlight");
+const poolStats = document.querySelector("#poolStats");
+const poolGrid = document.querySelector("#poolGrid");
+const metaBoard = document.querySelector("#metaBoard");
 let imageObserver = null;
 let imageHydrationTimer = null;
 const loadedImageUrls = new Set();
 
+function loadPlayerPool() {
+  try {
+    return JSON.parse(localStorage.getItem("mlbbPlayerPool") || "{}");
+  } catch (error) {
+    return {};
+  }
+}
+
+function savePlayerPool() {
+  localStorage.setItem("mlbbPlayerPool", JSON.stringify(state.playerPool));
+}
+
 function init() {
   setAppStatus("JS запущен, рисую интерфейс...");
   loadDraftFromUrl();
+  state.spotlightHero = state.spotlightHero || heroes[0]?.name || null;
   renderRoleFilter();
   bindEvents();
   render();
@@ -1680,6 +1711,44 @@ function getRoleCount(role) {
 }
 
 function bindEvents() {
+  navTabs.forEach((button) => {
+    button.addEventListener("click", () => {
+      state.activeView = button.dataset.view;
+      render();
+    });
+  });
+
+  librarySearch?.addEventListener("input", (event) => {
+    state.librarySearch = event.target.value.trim().toLowerCase();
+    renderHeroLibrary();
+  });
+
+  heroLibrary?.addEventListener("click", (event) => {
+    const name = event.target.closest("[data-library-hero]")?.dataset.libraryHero;
+    if (!name) return;
+    state.spotlightHero = name;
+    renderHeroLibrary();
+    renderHeroSpotlight();
+  });
+
+  heroSpotlight?.addEventListener("click", (event) => {
+    const buildName = event.target.closest("[data-build-name]")?.dataset.buildName;
+    if (buildName) {
+      openHeroBuild(buildName);
+      return;
+    }
+    if (event.target.closest("[data-go-draft]")) {
+      state.activeView = "draft";
+      render();
+    }
+  });
+
+  poolGrid?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-pool-hero]");
+    if (!button) return;
+    setPoolLevel(button.dataset.poolHero, button.dataset.poolLevel);
+  });
+
   document.querySelector("#resetBtn").addEventListener("click", () => {
     state.enemies = [];
     state.allies = [];
@@ -1884,6 +1953,7 @@ function openHeroBuild(name) {
   if (!hero) return;
   heroProfileContent.innerHTML = renderHeroBuildModal(hero);
   heroProfileDialog.classList.remove("hidden");
+  scheduleImageHydration();
 }
 
 function closeHeroProfile() {
@@ -2001,6 +2071,7 @@ function scoreHeroForDraft(hero, plannedAllies = []) {
 }
 
 function render() {
+  renderViewShell();
   renderRoleFilter();
   renderSideMode();
   renderChips(allyBanPicks, "allyBans");
@@ -2013,7 +2084,24 @@ function render() {
   renderBanRecommendations();
   renderRecommendations();
   renderTeamInsights();
+  renderHeroLibrary();
+  renderHeroSpotlight();
+  renderPool();
+  renderMetaBoard();
   scheduleImageHydration();
+}
+
+function renderViewShell() {
+  navTabs.forEach((button) => {
+    button.classList.toggle("active", button.dataset.view === state.activeView);
+  });
+  viewPanels.forEach((panel) => {
+    panel.classList.toggle("active", panel.dataset.viewPanel === state.activeView);
+  });
+}
+
+function hasAnyPoolHero() {
+  return Object.values(state.playerPool).some((level) => level === "strong" || level === "medium");
 }
 
 function renderSideMode() {
@@ -2078,6 +2166,163 @@ function renderHeroGrid() {
   heroGrid.innerHTML = filtered
     .map((hero) => renderHeroTile(hero, picked.has(hero.name), getAllBans().includes(hero.name)))
     .join("");
+}
+
+function renderHeroLibrary() {
+  if (!heroLibrary) return;
+  const query = state.librarySearch;
+  const filtered = heroes.filter((hero) => {
+    if (!query) return true;
+    return `${hero.name} ${hero.roles.join(" ")} ${hero.tier} ${hero.notes}`
+      .toLowerCase()
+      .includes(query);
+  });
+
+  heroLibrary.innerHTML = filtered
+    .map((hero) => {
+      const active = hero.name === state.spotlightHero;
+      const pool = state.playerPool[hero.name] || "none";
+      const stages = getHeroStageScores(hero);
+      const bestStage = getStageLabel(stages);
+      return `
+        <button class="library-card ${active ? "active" : ""}" type="button" data-library-hero="${hero.name}">
+          ${renderLazyImage("card-avatar", hero.name)}
+          <span>
+            <strong>${hero.name}</strong>
+            <em>${hero.roles.join(" / ")} · ${hero.tier}-tier · ${poolLabels[pool]}</em>
+          </span>
+          <small>${bestStage}</small>
+        </button>
+      `;
+    })
+    .join("");
+}
+
+function renderHeroSpotlight() {
+  if (!heroSpotlight) return;
+  const hero = heroByName.get(state.spotlightHero) || heroes[0];
+  if (!hero) {
+    heroSpotlight.innerHTML = "";
+    return;
+  }
+  const matchup = getHeroMatchupProfile(hero);
+  const build = getBuildRecommendation(hero);
+  const stages = getHeroStageScores(hero);
+  heroSpotlight.innerHTML = `
+    <div class="spotlight-head">
+      ${renderLazyImage("profile-avatar", hero.name)}
+      <div>
+        <h2>${hero.name}</h2>
+        <p>${hero.notes}</p>
+        <ul class="role-list">${hero.roles.map((role) => `<li>${role}</li>`).join("")}</ul>
+      </div>
+    </div>
+    ${renderHeroStageLine(stages)}
+    <div class="spotlight-actions">
+      <button class="ghost-button" type="button" data-go-draft="true">В драфт</button>
+      <button class="ghost-button" type="button" data-build-name="${hero.name}">Билд</button>
+    </div>
+    <div class="profile-grid compact">
+      ${renderProfileBlock("Кого закрывает", matchup.targets.slice(0, 3), "good")}
+      ${renderProfileBlock("Опасные враги", matchup.dangers.slice(0, 3), "bad")}
+    </div>
+    <div class="profile-section">
+      <h3>Быстрый билд</h3>
+      <p>${build.summary}</p>
+      <div class="build-list compact">
+        ${build.items.slice(0, 4).map(renderBuildItem).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderPool() {
+  if (!poolStats || !poolGrid) return;
+  const strong = heroes.filter((hero) => state.playerPool[hero.name] === "strong").length;
+  const medium = heroes.filter((hero) => state.playerPool[hero.name] === "medium").length;
+  const byRole = teamRoles
+    .map((role) => {
+      const count = heroes.filter((hero) => hero.roles.includes(role) && ["strong", "medium"].includes(state.playerPool[hero.name])).length;
+      return `<span><strong>${role}</strong>${count}</span>`;
+    })
+    .join("");
+
+  poolStats.innerHTML = `
+    <div><strong>${strong}</strong><span>сильных</span></div>
+    <div><strong>${medium}</strong><span>средних</span></div>
+    <div class="pool-role-row">${byRole}</div>
+  `;
+
+  poolGrid.innerHTML = heroes
+    .map((hero) => {
+      const level = state.playerPool[hero.name] || "none";
+      return `
+        <article class="pool-card">
+          <div class="pool-card-head">
+            ${renderLazyImage("chip-avatar", hero.name)}
+            <span>
+              <strong>${hero.name}</strong>
+              <em>${hero.roles.join(" / ")}</em>
+            </span>
+          </div>
+          <div class="pool-buttons">
+            ${poolLevels
+              .map(
+                (poolLevel) =>
+                  `<button class="${level === poolLevel ? "active" : ""}" type="button" data-pool-hero="${hero.name}" data-pool-level="${poolLevel}">${poolLabels[poolLevel]}</button>`,
+              )
+              .join("")}
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function renderMetaBoard() {
+  if (!metaBoard) return;
+  const roleCards = teamRoles
+    .map((role) => {
+      const top = heroes
+        .filter((hero) => hero.roles.includes(role))
+        .sort((a, b) => b.meta - a.meta)
+        .slice(0, 6);
+      return `
+        <article class="meta-card">
+          <h3>${role}</h3>
+          <div class="meta-list">
+            ${top
+              .map(
+                (hero) => `
+                  <button type="button" data-library-hero="${hero.name}">
+                    ${renderLazyImage("chip-avatar", hero.name)}
+                    <span><strong>${hero.name}</strong><em>${hero.tier}-tier · ${hero.meta}</em></span>
+                  </button>
+                `,
+              )
+              .join("")}
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+
+  metaBoard.innerHTML = roleCards;
+  metaBoard.querySelectorAll("[data-library-hero]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.spotlightHero = button.dataset.libraryHero;
+      state.activeView = "heroes";
+      render();
+    });
+  });
+}
+
+function setPoolLevel(name, level) {
+  if (!heroByName.has(name) || !poolLevels.includes(level)) return;
+  if (level === "none") delete state.playerPool[name];
+  else state.playerPool[name] = level;
+  savePlayerPool();
+  render();
 }
 
 function renderHeroTile(hero, isPicked, isBanned) {
@@ -2777,6 +3022,18 @@ function scoreHero(hero) {
 
   if (state.role !== "Любая" && hero.roles.includes(state.role)) {
     score += 8;
+  }
+
+  const poolLevel = state.playerPool[hero.name] || "none";
+  if (poolLevel === "strong") {
+    score += 18;
+    reasons.push("Есть в твоем сильном пуле");
+  } else if (poolLevel === "medium") {
+    score += 7;
+    reasons.push("Есть в твоем среднем пуле");
+  } else if (hasAnyPoolHero()) {
+    score -= 16;
+    reasons.push("Не отмечен в твоем пуле");
   }
 
   const projected = scoreDraft(hero.name).win;

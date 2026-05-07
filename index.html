@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MLBB Draft Helper</title>
-    <link rel="stylesheet" href="styles.css?v=20260506-18" />
+    <link rel="stylesheet" href="styles.css?v=20260507-01" />
   </head>
   <body>
     <main class="app-shell">
@@ -16,15 +16,22 @@
         <div class="meta-pill">
           <span>Мета</span>
           <strong>май 2026</strong>
-          <em id="appVersion">v2026.05.06.18</em>
+          <em id="appVersion">v2026.05.07.01</em>
         </div>
       </header>
+
+      <nav class="app-nav" aria-label="Разделы приложения">
+        <button class="nav-tab active" type="button" data-view="draft">Драфт</button>
+        <button class="nav-tab" type="button" data-view="heroes">Герои</button>
+        <button class="nav-tab" type="button" data-view="pool">Мой пул</button>
+        <button class="nav-tab" type="button" data-view="meta">Мета</button>
+      </nav>
 
       <div id="appStatus" class="app-status">
         HTML загружен, ожидаю app.js...
       </div>
 
-      <section class="workspace">
+      <section class="workspace app-view active" data-view-panel="draft">
         <aside class="panel controls-panel" aria-label="Настройки драфта">
           <div class="panel-header">
             <h2>Драфт</h2>
@@ -153,6 +160,64 @@
         </section>
       </section>
 
+      <section class="app-view" data-view-panel="heroes">
+        <div class="page-grid page-grid-wide">
+          <section class="panel page-panel">
+            <div class="panel-header">
+              <div>
+                <h2>База героев</h2>
+                <p class="muted">Открывай профиль, смотри матчапы, стадии силы и сборки под текущий драфт.</p>
+              </div>
+              <label class="compact-search">
+                <span>Поиск</span>
+                <input id="librarySearch" class="search-input" type="search" placeholder="Alpha, Mid, S-tier" />
+              </label>
+            </div>
+            <div id="heroLibrary" class="library-grid"></div>
+          </section>
+
+          <aside class="panel page-panel hero-spotlight">
+            <div id="heroSpotlight"></div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="app-view" data-view-panel="pool">
+        <div class="page-grid">
+          <section class="panel page-panel">
+            <div class="panel-header">
+              <div>
+                <h2>Мой пул героев</h2>
+                <p class="muted">Отмечай, кем реально играешь. Рекомендации будут учитывать твой пул.</p>
+              </div>
+            </div>
+            <div id="poolStats" class="pool-stats"></div>
+            <div id="poolGrid" class="pool-grid"></div>
+          </section>
+
+          <aside class="panel page-panel">
+            <h2>Как это влияет</h2>
+            <div class="pool-help">
+              <p><strong>Сильно</strong> — герой остаётся в топе рекомендаций.</p>
+              <p><strong>Средне</strong> — герой может рекомендоваться, но ниже.</p>
+              <p><strong>Не играю</strong> — сайт старается заменить его похожим вариантом.</p>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="app-view" data-view-panel="meta">
+        <section class="panel page-panel">
+          <div class="panel-header">
+            <div>
+              <h2>Мета-обзор</h2>
+              <p class="muted">Быстрый срез по ролям, tier-листу и героям, которых чаще стоит держать в голове на драфте.</p>
+            </div>
+          </div>
+          <div id="metaBoard" class="meta-board"></div>
+        </section>
+      </section>
+
       <div id="roleDialog" class="role-dialog hidden" aria-live="polite">
         <div class="role-dialog-card">
           <div>
@@ -198,7 +263,7 @@
     </main>
 
     <script>
-      window.MLBB_APP_VERSION = "2026.05.06.18";
+      window.MLBB_APP_VERSION = "2026.05.07.01";
       window.addEventListener("error", function (event) {
         var status = document.getElementById("appStatus");
         if (!status) return;
@@ -214,6 +279,6 @@
         status.className = "app-status warn";
       }, 5000);
     </script>
-    <script src="app.js?v=20260506-18" defer></script>
+    <script src="app.js?v=20260507-01" defer></script>
   </body>
 </html>
