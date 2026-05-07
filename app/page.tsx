@@ -15,6 +15,7 @@ import {
   getBuild,
   getDraftChecklist,
   getHeroMatchups,
+  getHeroStageScores,
   getRecommendations,
   heroByName,
   heroImage,
@@ -219,6 +220,7 @@ export default function HomePage() {
             draft={draft}
             onSearch={setLibrarySearch}
             onSelect={setSelectedHero}
+            onSetPool={setPoolLevel}
             onGoDraft={() => navigate("draft")}
           />
         </PageWindow>
@@ -226,7 +228,14 @@ export default function HomePage() {
 
       {view === "pool" && (
         <PageWindow title="Мой пул" description="Твои реальные герои, чтобы советы были практичными.">
-          <PoolView pool={pool} onSetPool={setPoolLevel} />
+          <PoolView
+            pool={pool}
+            onSetPool={setPoolLevel}
+            onOpenHero={(name) => {
+              setSelectedHero(name);
+              navigate("heroes");
+            }}
+          />
         </PageWindow>
       )}
       {view === "meta" && (
@@ -673,10 +682,14 @@ function DraftScore({ recommendations }: { recommendations: ReturnType<typeof ge
   );
 }
 
-function HeroesView({ search, selectedHero, pool, draft, onSearch, onSelect, onGoDraft }: { search: string; selectedHero: Hero; pool: Record<string, PoolLevel>; draft: DraftState; onSearch: (value: string) => void; onSelect: (name: string) => void; onGoDraft: () => void }) {
+function HeroesView({ search, selectedHero, pool, draft, onSearch, onSelect, onSetPool, onGoDraft }: { search: string; selectedHero: Hero; pool: Record<string, PoolLevel>; draft: DraftState; onSearch: (value: string) => void; onSelect: (name: string) => void; onSetPool: (name: string, level: PoolLevel) => void; onGoDraft: () => void }) {
   const filtered = heroes.filter((hero) => !search || `${hero.name} ${hero.roles.join(" ")} ${hero.tier} ${hero.notes}`.toLowerCase().includes(search.toLowerCase()));
   const matchup = getHeroMatchups(selectedHero);
   const build = getBuild(selectedHero, draft);
+  const stages = getHeroStageScores(selectedHero);
+  const currentEnemies = draft.enemies.filter((name) => selectedHero.counters.includes(name) || matchup.targets.includes(name));
+  const currentThreats = draft.enemies.filter((name) => selectedHero.weakInto.includes(name));
+  const selectedPool = pool[selectedHero.name] || "none";
   return (
     <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_420px]">
       <Card>
@@ -722,10 +735,32 @@ function HeroesView({ search, selectedHero, pool, draft, onSearch, onSelect, onG
         </CardHeader>
         <CardContent className="grid gap-4">
           <Button variant="outline" onClick={onGoDraft}>Вернуться в драфт</Button>
+          <div className="grid gap-2 rounded-lg border border-border bg-secondary p-3">
+            <p className="text-xs font-black uppercase text-muted-foreground">Мой уровень на герое</p>
+            <div className="grid grid-cols-3 gap-2">
+              {(Object.keys(poolLabels) as PoolLevel[]).map((level) => (
+                <Button key={level} variant={selectedPool === level ? "default" : "outline"} size="sm" onClick={() => onSetPool(selectedHero.name, level)}>
+                  {poolLabels[level]}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <StageProfile stages={stages} />
+          <div className="grid gap-2 rounded-lg border border-border bg-secondary p-3">
+            <h3 className="text-sm font-black uppercase text-muted-foreground">По текущему драфту</h3>
+            <p className="text-sm text-muted-foreground">
+              {draft.enemies.length ? `Против: ${draft.enemies.join(", ")}` : "Добавь врагов в драфт, и здесь появится конкретная оценка матчапа."}
+            </p>
+            {currentEnemies.length ? <p className="text-sm"><span className="font-black text-primary">Хорошо закрывает: </span>{currentEnemies.join(", ")}</p> : null}
+            {currentThreats.length ? <p className="text-sm"><span className="font-black text-destructive">Опасно пикать в: </span>{currentThreats.join(", ")}</p> : null}
+          </div>
           <MatchupBox title="Кого закрывает" items={matchup.targets} tone="good" />
           <MatchupBox title="Опасные враги" items={matchup.dangers} tone="bad" />
           <MatchupBox title="Лучшие союзники" items={matchup.allies} tone="neutral" />
           <BuildBox hero={selectedHero} build={build} />
+          <div className="rounded-lg border border-border bg-secondary p-3 text-sm text-muted-foreground">
+            <p><span className="font-black text-foreground">Источник: </span>локальная база матчапов, pro/high-rank сигналы и ситуационные правила для билдов. Если точных pro-данных нет, сайт показывает паттерн, а не выдаёт его за 100% статистику.</p>
+          </div>
         </CardContent>
       </Card>
     </section>
@@ -739,6 +774,32 @@ function MatchupBox({ title, items, tone }: { title: string; items: string[]; to
       <div className="flex flex-wrap gap-2">
         {items.length ? items.map((item) => <Badge key={item}>{item}</Badge>) : <span className="text-sm text-muted-foreground">Нет точных данных</span>}
       </div>
+    </div>
+  );
+}
+
+function StageProfile({ stages }: { stages: ReturnType<typeof getHeroStageScores> }) {
+  const rows = [
+    { label: "Старт", value: stages.early },
+    { label: "Мидгейм", value: stages.mid },
+    { label: "Лейт", value: stages.late },
+  ];
+  const best = rows.reduce((top, row) => (row.value > top.value ? row : top), rows[0]);
+  return (
+    <div className="grid gap-2 rounded-lg border border-border bg-secondary p-3">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-black uppercase text-muted-foreground">Сила по стадиям</h3>
+        <Badge className="border-primary/40 text-primary">сильнее: {best.label}</Badge>
+      </div>
+      {rows.map((row) => (
+        <div key={row.label} className="grid grid-cols-[76px_1fr_34px] items-center gap-2 text-xs">
+          <span className="text-muted-foreground">{row.label}</span>
+          <span className="h-2 overflow-hidden rounded-full bg-muted">
+            <span className="block h-full rounded-full bg-primary" style={{ width: `${Math.max(8, Math.min(100, row.value))}%` }} />
+          </span>
+          <strong className="text-right">{row.value}</strong>
+        </div>
+      ))}
     </div>
   );
 }
@@ -815,25 +876,54 @@ function BuildBox({ hero, build }: { hero: Hero; build: ReturnType<typeof getBui
   );
 }
 
-function PoolView({ pool, onSetPool }: { pool: Record<string, PoolLevel>; onSetPool: (name: string, level: PoolLevel) => void }) {
+function PoolView({ pool, onSetPool, onOpenHero }: { pool: Record<string, PoolLevel>; onSetPool: (name: string, level: PoolLevel) => void; onOpenHero: (name: string) => void }) {
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState<(typeof roles)[number]>(roles[0]);
   const strong = heroes.filter((hero) => pool[hero.name] === "strong").length;
   const medium = heroes.filter((hero) => pool[hero.name] === "medium").length;
+  const playable = heroes.filter((hero) => ["strong", "medium"].includes(pool[hero.name] || "none"));
+  const filteredHeroes = heroes.filter((hero) => {
+    const matchesSearch = !search || `${hero.name} ${hero.roles.join(" ")} ${hero.tier}`.toLowerCase().includes(search.toLowerCase());
+    const matchesRole = roleFilter === roles[0] || hero.roles.includes(roleFilter as Role);
+    return matchesSearch && matchesRole;
+  });
+  const weakRoles = teamRoles.filter((role) => playable.filter((hero) => hero.roles.includes(role)).length < 3);
+  const learnNext = heroes
+    .filter((hero) => !pool[hero.name] && (hero.tier === "S" || hero.tier === "A"))
+    .filter((hero) => !weakRoles.length || hero.roles.some((role) => weakRoles.includes(role)))
+    .sort((a, b) => b.meta - a.meta)
+    .slice(0, 6);
   return (
     <section className="grid gap-4 lg:grid-cols-[1fr_320px]">
       <Card>
-        <CardHeader>
-          <CardTitle>Мой пул героев</CardTitle>
-          <CardDescription>Отмечай, кем реально играешь. Драфт будет советовать практичные пики.</CardDescription>
+        <CardHeader className="gap-4">
+          <div>
+            <CardTitle>Мой пул героев</CardTitle>
+            <CardDescription>Отмечай, кем реально играешь. Драфт будет советовать практичные пики.</CardDescription>
+          </div>
+          <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input className="pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Найти героя" />
+            </div>
+            <div className="flex gap-1 overflow-x-auto pb-1">
+              {roles.map((role) => (
+                <Button key={role} variant={roleFilter === role ? "default" : "outline"} size="sm" onClick={() => setRoleFilter(role)}>
+                  {role}
+                </Button>
+              ))}
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {heroes.map((hero) => (
+          {filteredHeroes.map((hero) => (
             <article key={hero.name} className="grid gap-3 rounded-lg border border-border bg-secondary p-3">
               <div className="flex items-center gap-3">
                 <HeroAvatar name={hero.name} size="sm" />
-                <div>
-                  <strong>{hero.name}</strong>
+                <button type="button" onClick={() => onOpenHero(hero.name)} className="min-w-0 text-left">
+                  <strong className="block truncate">{hero.name}</strong>
                   <p className="text-xs text-muted-foreground">{hero.roles.join(" / ")}</p>
-                </div>
+                </button>
               </div>
               <div className="grid grid-cols-3 gap-2">
                 {(Object.keys(poolLabels) as PoolLevel[]).map((level) => (
@@ -856,6 +946,22 @@ function PoolView({ pool, onSetPool }: { pool: Record<string, PoolLevel>; onSetP
           {teamRoles.map((role) => (
             <Stat key={role} label={role} value={heroes.filter((hero) => hero.roles.includes(role) && ["strong", "medium"].includes(pool[hero.name] || "none")).length} />
           ))}
+          <div className="grid gap-2 rounded-lg border border-border bg-secondary p-3">
+            <h3 className="text-sm font-black uppercase text-muted-foreground">Что добрать в пул</h3>
+            {weakRoles.length ? <p className="text-sm text-muted-foreground">Проседают роли: {weakRoles.join(", ")}</p> : <p className="text-sm text-muted-foreground">Пул по ролям выглядит ровно.</p>}
+            <div className="grid gap-2">
+              {learnNext.map((hero) => (
+                <button key={hero.name} type="button" onClick={() => onOpenHero(hero.name)} className="grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-md border border-border bg-background p-2 text-left">
+                  <HeroAvatar name={hero.name} size="xs" />
+                  <span className="min-w-0">
+                    <strong className="block truncate text-sm">{hero.name}</strong>
+                    <span className="text-xs text-muted-foreground">{hero.roles.join(" / ")}</span>
+                  </span>
+                  <Badge>{hero.tier}</Badge>
+                </button>
+              ))}
+            </div>
+          </div>
         </CardContent>
       </Card>
     </section>
