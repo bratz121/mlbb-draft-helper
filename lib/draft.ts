@@ -29,6 +29,13 @@ export type ScoreBreakdownItem = {
   tone: "good" | "bad" | "neutral";
 };
 
+export type DraftInsight = {
+  label: string;
+  value: string;
+  detail: string;
+  tone: "good" | "bad" | "neutral";
+};
+
 export const heroByName = new Map(heroes.map((hero) => [hero.name, hero]));
 
 const frontlineHeroes = new Set([
@@ -439,6 +446,10 @@ export function getHeroMatchups(hero: Hero) {
 }
 
 export function getDraftInsights(state: DraftState) {
+  return getDraftChecklist(state).map((insight) => `${insight.label}: ${insight.value}`);
+}
+
+export function getDraftChecklist(state: DraftState): DraftInsight[] {
   const allyHeroes = state.allies.map((name) => heroByName.get(name)).filter(Boolean) as Hero[];
   const enemyHeroes = state.enemies.map((name) => heroByName.get(name)).filter(Boolean) as Hero[];
   const roles = new Set(allyHeroes.flatMap((hero) => hero.roles));
@@ -450,11 +461,37 @@ export function getDraftInsights(state: DraftState) {
   const magic = allyHeroes.filter((hero) => magicDamageHeroes.has(hero.name)).length;
   const trueDamage = allyHeroes.filter((hero) => trueDamageHeroes.has(hero.name)).length;
   const physical = Math.max(0, allyHeroes.length - magic - trueDamage);
+
   return [
-    missingRoles.length ? `Не закрыто: ${missingRoles.join(", ")}` : "Все 5 ролей закрыты",
-    ccCount >= 2 ? `Контроль хороший: ${ccCount}` : "Мало надежного контроля",
-    frontCount >= 1 ? `Фронтлайн есть: ${frontCount}` : "Нужен герой для входа/фронта",
-    antiHealNeed && !antiHealAnswer ? "Нужен anti-heal против лечения" : "Anti-heal критично не провисает",
-    `Урон: ${physical} физ / ${magic} маг / ${trueDamage} true`,
+    {
+      label: "Роли",
+      value: missingRoles.length ? missingRoles.join(", ") : "закрыты",
+      detail: missingRoles.length ? "Закрой недостающий слот или бери flex героя" : "Команда покрывает все основные позиции",
+      tone: missingRoles.length ? "bad" : "good",
+    },
+    {
+      label: "Контроль",
+      value: `${ccCount}`,
+      detail: ccCount >= 2 ? "Есть чем начинать и останавливать драки" : "Нужен hard CC или герой, который ловит мобильных врагов",
+      tone: ccCount >= 2 ? "good" : "bad",
+    },
+    {
+      label: "Фронт",
+      value: `${frontCount}`,
+      detail: frontCount >= 1 ? "Есть герой для входа и проверки кустов" : "Команде не хватает тела для входа",
+      tone: frontCount >= 1 ? "good" : "bad",
+    },
+    {
+      label: "Anti-heal",
+      value: antiHealNeed && !antiHealAnswer ? "нужен" : "ок",
+      detail: antiHealNeed && !antiHealAnswer ? "У врага есть лечение/sustain, нужен Baxia, anti-heal item или герой с давлением" : "Критичной проблемы с лечением сейчас нет",
+      tone: antiHealNeed && !antiHealAnswer ? "bad" : "good",
+    },
+    {
+      label: "Урон",
+      value: `${physical} физ / ${magic} маг / ${trueDamage} true`,
+      detail: magic === 0 || physical === 0 ? "Урон может быть слишком однобоким, врагу проще закупиться в защиту" : "Типы урона распределены нормально",
+      tone: magic === 0 || physical === 0 ? "neutral" : "good",
+    },
   ];
 }

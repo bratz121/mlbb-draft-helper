@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Ban, BookOpen, Crosshair, RotateCcw, Search, Sparkles, Users } from "lucide-react";
+import { Ban, BookOpen, Crosshair, RotateCcw, Search, Sparkles, Users, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +13,7 @@ import {
   getAllBans,
   getBanRecommendations,
   getBuild,
-  getDraftInsights,
+  getDraftChecklist,
   getHeroMatchups,
   getRecommendations,
   heroByName,
@@ -25,7 +25,7 @@ import { getProSignal, proHeroSignals, proMetaSources, proMetaUpdatedAt } from "
 import { getSupabaseStatus, type SupabaseStatus } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 
-type View = "draft" | "heroes" | "pool" | "meta";
+type View = "quick" | "draft" | "heroes" | "pool" | "meta";
 
 const emptyDraft: DraftState = {
   enemies: [],
@@ -52,6 +52,7 @@ const poolLabels: Record<PoolLevel, string> = {
 };
 
 const views = [
+  { id: "quick", label: "Быстро", icon: Zap },
   { id: "draft", label: "Драфт", icon: Crosshair },
   { id: "heroes", label: "Герои", icon: BookOpen },
   { id: "pool", label: "Мой пул", icon: Users },
@@ -59,7 +60,7 @@ const views = [
 ] satisfies Array<{ id: View; label: string; icon: typeof Crosshair }>;
 
 export default function HomePage() {
-  const [view, setView] = useState<View>("draft");
+  const [view, setView] = useState<View>("quick");
   const [draft, setDraft] = useState<DraftState>(emptyDraft);
   const [pool, setPool] = useState<Record<string, PoolLevel>>({});
   const [librarySearch, setLibrarySearch] = useState("");
@@ -166,11 +167,29 @@ export default function HomePage() {
         </div>
       </header>
 
-      <nav className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-4 gap-1 rounded-lg border border-border bg-background/95 p-1 shadow-2xl shadow-black/40 backdrop-blur lg:hidden">
+      <nav className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-5 gap-1 rounded-lg border border-border bg-background/95 p-1 shadow-2xl shadow-black/40 backdrop-blur lg:hidden">
         {views.map((item) => (
           <MobilePageLink key={item.id} active={view === item.id} onClick={() => navigate(item.id)} icon={item.icon} label={item.label} href={`#${item.id}`} />
         ))}
       </nav>
+
+      {view === "quick" && (
+        <PageWindow title="Быстрый драфт" description="Минимум лишнего: выбери врагов, роль и сразу смотри лучший пик.">
+          <QuickDraftView
+            draft={draft}
+            pool={pool}
+            recommendations={recommendations}
+            onPatch={patchDraft}
+            onAddPick={addPick}
+            onRemovePick={removePick}
+            onOpenHero={(name) => {
+              setSelectedHero(name);
+              navigate("heroes");
+            }}
+            onFullDraft={() => navigate("draft")}
+          />
+        </PageWindow>
+      )}
 
       {view === "draft" && (
         <PageWindow title="Драфт" description="Рабочее окно пиков, банов и рекомендаций.">
@@ -272,6 +291,121 @@ function PageWindow({ title, description, children }: { title: string; descripti
         </div>
       </div>
       {children}
+    </section>
+  );
+}
+
+function QuickDraftView({
+  draft,
+  pool,
+  recommendations,
+  onPatch,
+  onAddPick,
+  onRemovePick,
+  onOpenHero,
+  onFullDraft,
+}: {
+  draft: DraftState;
+  pool: Record<string, PoolLevel>;
+  recommendations: ReturnType<typeof getRecommendations>;
+  onPatch: (patch: Partial<DraftState>) => void;
+  onAddPick: (side: Side, name: string) => void;
+  onRemovePick: (side: Side, name: string) => void;
+  onOpenHero: (name: string) => void;
+  onFullDraft: () => void;
+}) {
+  const unavailable = new Set([...draft.enemies, ...draft.allies, ...getAllBans(draft)]);
+  const best = recommendations[0];
+  const filteredHeroes = heroes
+    .filter((hero) => draft.role === "Любая" || hero.roles.includes(draft.role))
+    .filter((hero) => !unavailable.has(hero.name))
+    .filter((hero) => !draft.search || `${hero.name} ${hero.roles.join(" ")} ${hero.tier}`.toLowerCase().includes(draft.search))
+    .sort((a, b) => b.meta - a.meta)
+    .slice(0, 18);
+
+  return (
+    <section className="grid gap-3 lg:grid-cols-[minmax(320px,0.85fr)_minmax(360px,1fr)]">
+      <Card>
+        <CardHeader>
+          <CardTitle>Кого выбираем</CardTitle>
+          <CardDescription>Для скорости сначала добавляй вражеских героев, потом уточняй нужную роль.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3">
+          <div className="grid grid-cols-2 gap-2">
+            {(Object.keys(sideLabels) as Side[]).map((side) => (
+              <Button key={side} variant={draft.activeSide === side ? "default" : "outline"} size="sm" onClick={() => onPatch({ activeSide: side })}>
+                {sideLabels[side]}
+              </Button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+            {roles.map((role) => (
+              <Button key={role} variant={draft.role === role ? "default" : "outline"} size="sm" onClick={() => onPatch({ role })}>
+                {role}
+              </Button>
+            ))}
+          </div>
+
+          <Input value={draft.search} onChange={(event) => onPatch({ search: event.target.value.toLowerCase() })} placeholder="Быстрый поиск героя" />
+
+          <div className="grid gap-2">
+            <PickGroup title="Враги" side="enemies" items={draft.enemies} onRemove={onRemovePick} onOpenHero={onOpenHero} />
+            <PickGroup title="Мы" side="allies" items={draft.allies} onRemove={onRemovePick} onOpenHero={onOpenHero} />
+          </div>
+
+          <div className="grid max-h-[48vh] grid-cols-3 gap-2 overflow-auto pr-1 sm:grid-cols-4">
+            {filteredHeroes.map((hero) => (
+              <button key={hero.name} type="button" onClick={() => onAddPick(draft.activeSide, hero.name)} className="grid gap-1 rounded-lg border border-border bg-secondary p-2 text-left hover:border-primary">
+                <HeroAvatar name={hero.name} size="sm" />
+                <strong className="truncate text-xs">{hero.name}</strong>
+                <span className="text-[10px] text-muted-foreground">{hero.tier} · {hero.roles[0]}</span>
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Лучший пик сейчас</CardTitle>
+            <CardDescription>{draft.enemies.length ? `Считаю против: ${draft.enemies.join(", ")}` : "Добавь хотя бы одного врага, чтобы совет стал точнее."}</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3">
+            {best ? (
+              <>
+                <RecommendationCard item={best} onOpenHero={onOpenHero} />
+                <div className="grid grid-cols-2 gap-2">
+                  <Button onClick={() => onAddPick("allies", best.hero.name)}>Взять за нас</Button>
+                  <Button variant="outline" onClick={() => onOpenHero(best.hero.name)}>Открыть билд</Button>
+                </div>
+              </>
+            ) : (
+              <div className="rounded-lg border border-border bg-secondary p-4 text-sm text-muted-foreground">Нет доступных рекомендаций для текущих фильтров.</div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Чеклист состава</CardTitle>
+            <CardDescription>Быстро показывает, что команда уже закрыла, а что провисает.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-2">
+            {getDraftChecklist(draft).map((insight) => (
+              <div key={insight.label} className={cn("rounded-md border bg-secondary p-3", insight.tone === "good" && "border-primary/35", insight.tone === "bad" && "border-destructive/40")}>
+                <div className="flex items-center justify-between gap-3">
+                  <strong>{insight.label}</strong>
+                  <Badge>{insight.value}</Badge>
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">{insight.detail}</p>
+              </div>
+            ))}
+            <Button variant="outline" onClick={onFullDraft}>Открыть полный драфт</Button>
+          </CardContent>
+        </Card>
+      </div>
     </section>
   );
 }
@@ -398,11 +532,15 @@ function DraftView({
           </div>
 
           <div className="grid gap-2">
-            <h3 className="text-sm font-black uppercase text-muted-foreground">Анализ состава</h3>
+            <h3 className="text-sm font-black uppercase text-muted-foreground">Чеклист состава</h3>
             <div className="grid gap-2 sm:grid-cols-2">
-              {getDraftInsights(draft).map((insight) => (
-                <div key={insight} className="rounded-md border border-border bg-secondary p-3 text-sm text-muted-foreground">
-                  {insight}
+              {getDraftChecklist(draft).map((insight) => (
+                <div key={insight.label} className={cn("rounded-md border bg-secondary p-3 text-sm", insight.tone === "good" && "border-primary/35", insight.tone === "bad" && "border-destructive/40")}>
+                  <div className="flex items-center justify-between gap-2">
+                    <strong>{insight.label}</strong>
+                    <Badge>{insight.value}</Badge>
+                  </div>
+                  <p className="mt-1 text-muted-foreground">{insight.detail}</p>
                 </div>
               ))}
             </div>
@@ -481,6 +619,22 @@ function RecommendationCard({ item, onOpenHero }: { item: ReturnType<typeof getR
           </div>
         </div>
         <p className="text-sm text-muted-foreground">{item.hero.notes}</p>
+        {(item.directCounters.length || item.threats.length) ? (
+          <div className="grid gap-2 rounded-md border border-border bg-background p-2 text-xs">
+            {item.directCounters.length ? (
+              <p>
+                <span className="font-black text-primary">Закрывает: </span>
+                <span className="text-muted-foreground">{item.directCounters.join(", ")}</span>
+              </p>
+            ) : null}
+            {item.threats.length ? (
+              <p>
+                <span className="font-black text-destructive">Осторожно против: </span>
+                <span className="text-muted-foreground">{item.threats.join(", ")}</span>
+              </p>
+            ) : null}
+          </div>
+        ) : null}
         <ul className="grid gap-1 text-sm text-muted-foreground">
           {item.reasons.slice(0, 4).map((reason) => (
             <li key={reason}>{reason}</li>
