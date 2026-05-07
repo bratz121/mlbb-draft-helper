@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Ban, BookOpen, Crosshair, RotateCcw, Search, Sparkles, Users, Zap } from "lucide-react";
+import { Ban, BookOpen, Crosshair, Link2, RotateCcw, Search, Sparkles, Trash2, Users, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,6 +30,15 @@ import { getSupabaseStatus, type SupabaseStatus } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 
 type View = "quick" | "draft" | "heroes" | "pool" | "meta";
+
+type DraftHistoryItem = {
+  id: string;
+  label: string;
+  createdAt: number;
+  draft: DraftState;
+};
+
+const draftHistoryKey = "mlbbDraftHistory";
 
 const emptyDraft: DraftState = {
   enemies: [],
@@ -63,18 +72,74 @@ const views = [
   { id: "meta", label: "Мета", icon: Sparkles },
 ] satisfies Array<{ id: View; label: string; icon: typeof Crosshair }>;
 
+function draftSnapshot(draft: DraftState): DraftState {
+  return {
+    enemies: draft.enemies,
+    allies: draft.allies,
+    allyBans: draft.allyBans,
+    enemyBans: draft.enemyBans,
+    role: draft.role,
+    metaOnly: draft.metaOnly,
+    activeSide: draft.activeSide,
+    search: "",
+  };
+}
+
+function encodeDraft(draft: DraftState) {
+  return encodeURIComponent(JSON.stringify(draftSnapshot(draft)));
+}
+
+function decodeDraft(value: string): DraftState | null {
+  try {
+    const parsed = JSON.parse(decodeURIComponent(value)) as DraftState;
+    const validRole = roles.includes(parsed.role as (typeof roles)[number]) ? parsed.role : "Любая";
+    const validSide = (Object.keys(sideLabels) as Side[]).includes(parsed.activeSide) ? parsed.activeSide : "enemies";
+    const cleanList = (items: unknown) => (Array.isArray(items) ? items.filter((name) => typeof name === "string" && heroByName.has(name)).slice(0, 5) : []);
+    return {
+      enemies: cleanList(parsed.enemies),
+      allies: cleanList(parsed.allies),
+      allyBans: cleanList(parsed.allyBans),
+      enemyBans: cleanList(parsed.enemyBans),
+      role: validRole,
+      metaOnly: Boolean(parsed.metaOnly),
+      activeSide: validSide,
+      search: "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function hasDraftContent(draft: DraftState) {
+  return draft.enemies.length + draft.allies.length + draft.allyBans.length + draft.enemyBans.length > 0;
+}
+
+function makeDraftLabel(draft: DraftState) {
+  const enemyText = draft.enemies.length ? `против ${draft.enemies.slice(0, 3).join(", ")}` : "без врагов";
+  const allyText = draft.allies.length ? `мы ${draft.allies.slice(0, 2).join(", ")}` : "пики не выбраны";
+  return `${enemyText} · ${allyText}`;
+}
+
 export default function HomePage() {
   const [view, setView] = useState<View>("quick");
   const [draft, setDraft] = useState<DraftState>(emptyDraft);
   const [pool, setPool] = useState<Record<string, PoolLevel>>({});
+  const [draftHistory, setDraftHistory] = useState<DraftHistoryItem[]>([]);
+  const [shareStatus, setShareStatus] = useState("");
   const [librarySearch, setLibrarySearch] = useState("");
   const [selectedHero, setSelectedHero] = useState(heroes[0]?.name ?? "");
   const [dbStatus, setDbStatus] = useState<SupabaseStatus>({ state: "local", label: "Локальная база", detail: "Проверяю Supabase" });
 
   useEffect(() => {
     const readHash = () => {
-      const nextView = window.location.hash.replace("#", "") as View;
+      const [hashView, query = ""] = window.location.hash.replace("#", "").split("?");
+      const nextView = hashView as View;
       if (views.some((item) => item.id === nextView)) setView(nextView);
+      const draftParam = new URLSearchParams(query).get("d");
+      if (draftParam) {
+        const restored = decodeDraft(draftParam);
+        if (restored) setDraft(restored);
+      }
     };
     readHash();
     window.addEventListener("hashchange", readHash);
@@ -84,14 +149,32 @@ export default function HomePage() {
   useEffect(() => {
     try {
       setPool(JSON.parse(localStorage.getItem("mlbbPlayerPool") || "{}"));
+      setDraftHistory(JSON.parse(localStorage.getItem(draftHistoryKey) || "[]"));
     } catch {
       setPool({});
+      setDraftHistory([]);
     }
   }, []);
 
   useEffect(() => {
     localStorage.setItem("mlbbPlayerPool", JSON.stringify(pool));
   }, [pool]);
+
+  useEffect(() => {
+    if (!hasDraftContent(draft)) return;
+    const id = encodeDraft(draft);
+    const nextItem: DraftHistoryItem = {
+      id,
+      label: makeDraftLabel(draft),
+      createdAt: Date.now(),
+      draft,
+    };
+    setDraftHistory((current) => {
+      const next = [nextItem, ...current.filter((item) => item.id !== id)].slice(0, 8);
+      localStorage.setItem(draftHistoryKey, JSON.stringify(next));
+      return next;
+    });
+  }, [draft]);
 
   useEffect(() => {
     let alive = true;
@@ -137,6 +220,23 @@ export default function HomePage() {
   function navigate(nextView: View) {
     setView(nextView);
     window.history.replaceState(null, "", `#${nextView}`);
+  }
+
+  async function copyDraftLink() {
+    const url = `${window.location.origin}${window.location.pathname}#draft?d=${encodeDraft(draft)}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareStatus("Ссылка скопирована");
+    } catch {
+      window.prompt("Скопируй ссылку на драфт", url);
+      setShareStatus("Ссылка готова");
+    }
+    window.setTimeout(() => setShareStatus(""), 1800);
+  }
+
+  function clearDraftHistory() {
+    localStorage.removeItem(draftHistoryKey);
+    setDraftHistory([]);
   }
 
   return (
@@ -210,6 +310,11 @@ export default function HomePage() {
               navigate("heroes");
             }}
             onReset={() => setDraft(emptyDraft)}
+            onCopyLink={copyDraftLink}
+            shareStatus={shareStatus}
+            history={draftHistory}
+            onLoadHistory={(item) => setDraft(item.draft)}
+            onClearHistory={clearDraftHistory}
           />
         </PageWindow>
       )}
@@ -432,6 +537,11 @@ function DraftView({
   onRemovePick,
   onOpenHero,
   onReset,
+  onCopyLink,
+  shareStatus,
+  history,
+  onLoadHistory,
+  onClearHistory,
 }: {
   draft: DraftState;
   pool: Record<string, PoolLevel>;
@@ -442,6 +552,11 @@ function DraftView({
   onRemovePick: (side: Side, name: string) => void;
   onOpenHero: (name: string) => void;
   onReset: () => void;
+  onCopyLink: () => void;
+  shareStatus: string;
+  history: DraftHistoryItem[];
+  onLoadHistory: (item: DraftHistoryItem) => void;
+  onClearHistory: () => void;
 }) {
   const [slotRole, setSlotRole] = useState<Role>("Jungle");
   const [compareNames, setCompareNames] = useState<string[]>([]);
@@ -514,10 +629,32 @@ function DraftView({
             Только S/A tier
           </label>
 
+          <div className="grid gap-2 rounded-lg border border-border bg-secondary p-3">
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="outline" size="sm" onClick={onCopyLink} disabled={!hasDraftContent(draft)}>
+                <Link2 className="mr-2 h-4 w-4" />
+                Ссылка на драфт
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => onPatch({ enemies: [], allies: [] })}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Очистить пики
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => onPatch({ allyBans: [], enemyBans: [] })}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Очистить баны
+              </Button>
+              <Button variant="outline" size="sm" onClick={onClearHistory} disabled={!history.length}>
+                История x
+              </Button>
+            </div>
+            {shareStatus ? <p className="text-xs font-bold text-primary">{shareStatus}</p> : null}
+          </div>
+
           <PickGroup title="Наши баны" side="allyBans" items={draft.allyBans} onRemove={onRemovePick} onOpenHero={onOpenHero} />
           <PickGroup title="Баны врага" side="enemyBans" items={draft.enemyBans} onRemove={onRemovePick} onOpenHero={onOpenHero} />
           <PickGroup title="Враги" side="enemies" items={draft.enemies} onRemove={onRemovePick} onOpenHero={onOpenHero} />
           <PickGroup title="Мы" side="allies" items={draft.allies} onRemove={onRemovePick} onOpenHero={onOpenHero} />
+          <DraftHistoryList history={history} onLoad={onLoadHistory} />
         </CardContent>
       </Card>
 
@@ -597,6 +734,23 @@ function DraftView({
         </CardContent>
       </Card>
     </section>
+  );
+}
+
+function DraftHistoryList({ history, onLoad }: { history: DraftHistoryItem[]; onLoad: (item: DraftHistoryItem) => void }) {
+  if (!history.length) return null;
+  return (
+    <div className="grid gap-2">
+      <h3 className="text-xs font-black uppercase text-muted-foreground">Последние драфты</h3>
+      <div className="grid gap-2">
+        {history.slice(0, 5).map((item) => (
+          <button key={`${item.id}-${item.createdAt}`} type="button" onClick={() => onLoad(item)} className="rounded-md border border-border bg-secondary p-2 text-left hover:border-primary">
+            <strong className="block truncate text-sm">{item.label}</strong>
+            <span className="text-xs text-muted-foreground">{new Date(item.createdAt).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
