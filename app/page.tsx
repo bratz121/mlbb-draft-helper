@@ -22,6 +22,7 @@ import {
 } from "@/lib/draft";
 import { appVersion, heroes, itemCatalog, roles, teamRoles, type Hero, type Role } from "@/lib/mlbb-data";
 import { getProSignal, proHeroSignals, proMetaSources, proMetaUpdatedAt } from "@/lib/pro-meta";
+import { getSupabaseStatus, type SupabaseStatus } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 
 type View = "draft" | "heroes" | "pool" | "meta";
@@ -63,6 +64,7 @@ export default function HomePage() {
   const [pool, setPool] = useState<Record<string, PoolLevel>>({});
   const [librarySearch, setLibrarySearch] = useState("");
   const [selectedHero, setSelectedHero] = useState(heroes[0]?.name ?? "");
+  const [dbStatus, setDbStatus] = useState<SupabaseStatus>({ state: "local", label: "Локальная база", detail: "Проверяю Supabase" });
 
   useEffect(() => {
     const readHash = () => {
@@ -85,6 +87,16 @@ export default function HomePage() {
   useEffect(() => {
     localStorage.setItem("mlbbPlayerPool", JSON.stringify(pool));
   }, [pool]);
+
+  useEffect(() => {
+    let alive = true;
+    getSupabaseStatus().then((status) => {
+      if (alive) setDbStatus(status);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const recommendations = useMemo(() => getRecommendations(draft, pool), [draft, pool]);
   const bans = useMemo(() => getBanRecommendations(draft), [draft]);
@@ -145,6 +157,11 @@ export default function HomePage() {
             <span className="text-xs text-muted-foreground">Мета</span>
             <strong className="block">май 2026</strong>
             <span className="text-xs text-muted-foreground">v{appVersion}</span>
+          </div>
+          <div className="col-span-2 rounded-md border border-border bg-background/55 p-2 lg:col-span-1">
+            <span className="text-xs text-muted-foreground">Supabase</span>
+            <strong className={cn("block text-sm", dbStatus.state === "ready" && "text-primary", dbStatus.state === "error" && "text-destructive")}>{dbStatus.label}</strong>
+            <span className="block truncate text-xs text-muted-foreground" title={dbStatus.detail}>{dbStatus.detail}</span>
           </div>
         </div>
       </header>

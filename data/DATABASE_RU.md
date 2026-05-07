@@ -34,6 +34,8 @@ NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 ```
 
+В новых проектах Supabase ключ может называться `Publishable key` и начинаться с `sb_publishable_...`. Это нормально, его кладём в `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+
 5. Я добавлю data layer:
 
 ```ts
