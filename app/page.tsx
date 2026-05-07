@@ -865,7 +865,7 @@ function SlotPicker({
                 </button>
                 <div className="text-right">
                   <strong>{item.win}%</strong>
-                  <p className={cn("text-xs", item.threats.length ? "text-destructive" : "text-primary")}>{item.threats.length ? "риск" : "safe"}</p>
+                  <p className={cn("text-xs", item.confidence.level === "low" ? "text-destructive" : item.confidence.level === "high" ? "text-primary" : "text-accent")}>{item.confidence.score}% trust</p>
                 </div>
               </div>
             ))}
@@ -880,7 +880,7 @@ function SlotPicker({
 
 function SlotPickCard({ title, item, note, onPick, onOpenHero }: { title: string; item: RecommendationItem; note: string; onPick: (name: string) => void; onOpenHero: (name: string) => void }) {
   return (
-    <article className="grid gap-2 rounded-md border border-border bg-secondary p-2">
+    <article className={cn("grid gap-2 rounded-md border bg-secondary p-2", confidenceBorder(item.confidence.level))}>
       <div className="flex items-center gap-2">
         <HeroAvatar name={item.hero.name} size="sm" />
         <button type="button" onClick={() => onOpenHero(item.hero.name)} className="min-w-0 text-left">
@@ -889,11 +889,33 @@ function SlotPickCard({ title, item, note, onPick, onOpenHero }: { title: string
         </button>
         <strong className="ml-auto">{item.win}%</strong>
       </div>
+      <ConfidenceBadge item={item} />
       <p className="text-xs text-muted-foreground">{note}</p>
       {item.directCounters.length ? <p className="text-xs"><span className="font-black text-primary">Закрывает: </span>{item.directCounters.join(", ")}</p> : null}
-      {item.threats.length ? <p className="text-xs"><span className="font-black text-destructive">Риск: </span>{item.threats.join(", ")}</p> : null}
+      {item.riskFlags.length ? <p className="text-xs"><span className="font-black text-destructive">Флаг: </span>{item.riskFlags[0]}</p> : null}
       <Button size="sm" onClick={() => onPick(item.hero.name)}>Добавить в наши пики</Button>
     </article>
+  );
+}
+
+function confidenceBorder(level: RecommendationItem["confidence"]["level"]) {
+  if (level === "high") return "border-primary/45";
+  if (level === "medium") return "border-accent/45";
+  return "border-destructive/45";
+}
+
+function ConfidenceBadge({ item }: { item: RecommendationItem }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      <Badge className={cn(
+        item.confidence.level === "high" && "border-primary/40 text-primary",
+        item.confidence.level === "medium" && "border-accent/50 text-accent",
+        item.confidence.level === "low" && "border-destructive/50 text-destructive",
+      )}>
+        {item.confidence.label} · {item.confidence.score}%
+      </Badge>
+      <Badge>{item.sourceType}</Badge>
+    </div>
   );
 }
 
@@ -949,7 +971,7 @@ function HeroTile({ hero, disabled, pool, onClick, onInfo }: { hero: Hero; disab
 
 function RecommendationCard({ item, onOpenHero }: { item: ReturnType<typeof getRecommendations>[number]; onOpenHero: (name: string) => void }) {
   return (
-    <article className="grid gap-3 rounded-lg border border-border bg-secondary p-3 sm:grid-cols-[1fr_74px]">
+    <article className={cn("grid gap-3 rounded-lg border bg-secondary p-3 shadow-lg shadow-black/10 sm:grid-cols-[1fr_86px]", confidenceBorder(item.confidence.level))}>
       <div className="grid gap-2">
         <div className="flex items-center gap-3">
           <HeroAvatar name={item.hero.name} size="md" />
@@ -963,6 +985,10 @@ function RecommendationCard({ item, onOpenHero }: { item: ReturnType<typeof getR
               ))}
             </div>
           </div>
+        </div>
+        <div className="grid gap-2 rounded-md border border-border bg-background p-2">
+          <ConfidenceBadge item={item} />
+          <p className="text-xs text-muted-foreground">{item.confidence.detail}</p>
         </div>
         <p className="text-sm text-muted-foreground">{item.hero.notes}</p>
         {(item.directCounters.length || item.threats.length) ? (
@@ -979,6 +1005,14 @@ function RecommendationCard({ item, onOpenHero }: { item: ReturnType<typeof getR
                 <span className="text-muted-foreground">{item.threats.join(", ")}</span>
               </p>
             ) : null}
+          </div>
+        ) : null}
+        {item.riskFlags.length ? (
+          <div className="grid gap-1 rounded-md border border-destructive/35 bg-background p-2 text-xs">
+            <p className="font-black uppercase text-destructive">Красные флаги</p>
+            {item.riskFlags.map((flag) => (
+              <p key={flag} className="text-muted-foreground">{flag}</p>
+            ))}
           </div>
         ) : null}
         <ul className="grid gap-1 text-sm text-muted-foreground">
@@ -1001,6 +1035,7 @@ function RecommendationCard({ item, onOpenHero }: { item: ReturnType<typeof getR
       <div className="grid place-items-center rounded-lg bg-background p-3">
         <strong className="text-2xl">{item.win}%</strong>
         <span className="text-xs font-black uppercase text-muted-foreground">win</span>
+        <span className="mt-2 text-center text-xs text-muted-foreground">{item.confidence.score}% trust</span>
       </div>
     </article>
   );
@@ -1028,6 +1063,7 @@ function HeroesView({ search, selectedHero, pool, draft, onSearch, onSelect, onS
   const currentEnemies = draft.enemies.filter((name) => selectedHero.counters.includes(name) || matchup.targets.includes(name));
   const currentThreats = draft.enemies.filter((name) => selectedHero.weakInto.includes(name));
   const selectedPool = pool[selectedHero.name] || "none";
+  const selectedScore = scoreHero(selectedHero, draft, pool);
   return (
     <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_420px]">
       <Card>
@@ -1086,11 +1122,23 @@ function HeroesView({ search, selectedHero, pool, draft, onSearch, onSelect, onS
           <StageProfile stages={stages} />
           <div className="grid gap-2 rounded-lg border border-border bg-secondary p-3">
             <h3 className="text-sm font-black uppercase text-muted-foreground">По текущему драфту</h3>
+            <div className="flex flex-wrap items-center gap-2">
+              <strong className="text-2xl">{selectedScore.win}%</strong>
+              <ConfidenceBadge item={selectedScore} />
+            </div>
             <p className="text-sm text-muted-foreground">
               {draft.enemies.length ? `Против: ${draft.enemies.join(", ")}` : "Добавь врагов в драфт, и здесь появится конкретная оценка матчапа."}
             </p>
             {currentEnemies.length ? <p className="text-sm"><span className="font-black text-primary">Хорошо закрывает: </span>{currentEnemies.join(", ")}</p> : null}
             {currentThreats.length ? <p className="text-sm"><span className="font-black text-destructive">Опасно пикать в: </span>{currentThreats.join(", ")}</p> : null}
+            {selectedScore.riskFlags.length ? (
+              <div className="grid gap-1 rounded-md border border-destructive/35 bg-background p-2 text-xs">
+                <p className="font-black uppercase text-destructive">Красные флаги</p>
+                {selectedScore.riskFlags.map((flag) => (
+                  <p key={flag} className="text-muted-foreground">{flag}</p>
+                ))}
+              </div>
+            ) : null}
           </div>
           <MatchupBox title="Кого закрывает" items={matchup.targets} tone="good" />
           <MatchupBox title="Опасные враги" items={matchup.dangers} tone="bad" />

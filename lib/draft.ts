@@ -43,6 +43,15 @@ export type ScoreBreakdownItem = {
   tone: "good" | "bad" | "neutral";
 };
 
+export type ConfidenceLevel = "high" | "medium" | "low";
+
+export type PickConfidence = {
+  level: ConfidenceLevel;
+  label: string;
+  detail: string;
+  score: number;
+};
+
 export type DraftInsight = {
   label: string;
   value: string;
@@ -313,6 +322,17 @@ export function scoreHero(hero: Hero, state: DraftState, pool: Record<string, Po
     });
   }
 
+  const riskFlags = getPickRiskFlags(hero, state, threats);
+  const confidence = getPickConfidence({
+    hero,
+    proSignal: Boolean(proSignal),
+    directCounters,
+    threats,
+    poolLevel: level,
+    roleMatched: state.role !== "Любая" && hero.roles.includes(state.role),
+    riskFlags,
+  });
+
   return {
     hero,
     score: Math.max(0, Math.min(150, score)),
@@ -321,6 +341,9 @@ export function scoreHero(hero: Hero, state: DraftState, pool: Record<string, Po
     breakdown,
     directCounters,
     threats: [...new Set(threats)],
+    confidence,
+    riskFlags,
+    sourceType: proSignal ? "pro + high-rank" : directCounters.length ? "матчап-база" : "локальная эвристика",
     stageProfile: getHeroStageScores(hero),
   };
 }
@@ -335,6 +358,64 @@ export function getRecommendations(state: DraftState, pool: Record<string, PoolL
     .map((hero) => scoreHero(hero, state, pool))
     .sort((a, b) => b.score - a.score)
     .slice(0, 8);
+}
+
+function getPickConfidence({
+  hero,
+  proSignal,
+  directCounters,
+  threats,
+  poolLevel,
+  roleMatched,
+  riskFlags,
+}: {
+  hero: Hero;
+  proSignal: boolean;
+  directCounters: string[];
+  threats: string[];
+  poolLevel: PoolLevel;
+  roleMatched: boolean;
+  riskFlags: string[];
+}): PickConfidence {
+  let score = 35;
+  if (hero.tier === "S") score += 18;
+  else if (hero.tier === "A") score += 12;
+  else if (hero.tier === "B") score += 6;
+  if (proSignal) score += 18;
+  if (directCounters.length) score += Math.min(24, directCounters.length * 10);
+  if (poolLevel === "strong") score += 16;
+  else if (poolLevel === "medium") score += 8;
+  if (roleMatched) score += 8;
+  score -= Math.min(28, threats.length * 12);
+  score -= Math.min(18, riskFlags.length * 5);
+  const normalized = Math.max(0, Math.min(100, Math.round(score)));
+  const level: ConfidenceLevel = normalized >= 74 ? "high" : normalized >= 52 ? "medium" : "low";
+  const label = level === "high" ? "Высокая уверенность" : level === "medium" ? "Средняя уверенность" : "Низкая уверенность";
+  const detail =
+    level === "high"
+      ? "Есть сильные основания: мета, матчапы, роль или твой пул сходятся."
+      : level === "medium"
+        ? "Пик выглядит рабочим, но есть условия или не хватает точных матчапов."
+        : "Пик требует осторожности: есть риски, слабая связка с драфтом или мало точных данных.";
+  return { level, label, detail, score: normalized };
+}
+
+function getPickRiskFlags(hero: Hero, state: DraftState, threats: string[]) {
+  const allies = state.allies.map((name) => heroByName.get(name)).filter(Boolean) as Hero[];
+  const enemies = state.enemies.map((name) => heroByName.get(name)).filter(Boolean) as Hero[];
+  const enemyControl = enemies.filter((enemy) => controlHeroes.has(enemy.name)).length;
+  const enemyFront = enemies.filter(hasFrontline).length;
+  const enemyHeal = enemies.some((enemy) => healingHeroes.has(enemy.name));
+  const allyFront = allies.some(hasFrontline);
+  const flags = [
+    threats.length ? `опасные ответы: ${[...new Set(threats)].slice(0, 3).join(", ")}` : "",
+    enemyControl >= 2 && !hero.roles.includes("Roam") ? "много контроля, нужен Purify/Flicker и аккуратная позиция" : "",
+    enemyFront >= 2 && !trueDamageHeroes.has(hero.name) ? "плотный фронт, нужен ранний пробой танков" : "",
+    enemyHeal ? "у врага sustain, заранее планируй anti-heal" : "",
+    !allyFront && (hero.roles.includes("Gold") || hero.roles.includes("Mid")) ? "нет фронта, carry будет сложно стоять в драке" : "",
+    state.role !== "Любая" && !hero.roles.includes(state.role) ? `не основной слот для роли ${state.role}` : "",
+  ].filter(Boolean);
+  return [...new Set(flags)].slice(0, 4);
 }
 
 export function getBanRecommendations(state: DraftState) {
