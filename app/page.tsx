@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Ban, BookOpen, Crosshair, Link2, RotateCcw, Search, Sparkles, Trash2, Users, Zap } from "lucide-react";
+import { Ban, BookOpen, Crosshair, Link2, RotateCcw, Search, ShieldQuestion, Sparkles, Trash2, Users, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +19,7 @@ import {
   getHeroStageScores,
   getRecommendations,
   getTeamGamePlan,
+  getCounterWeight,
   heroByName,
   heroImage,
   itemImage,
@@ -29,7 +30,7 @@ import { getProSignal, proHeroSignals, proMetaSources, proMetaUpdatedAt } from "
 import { getSupabaseStatus, type SupabaseStatus } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 
-type View = "quick" | "draft" | "heroes" | "pool" | "meta";
+type View = "quick" | "draft" | "counters" | "heroes" | "pool" | "meta";
 
 type DraftHistoryItem = {
   id: string;
@@ -73,6 +74,7 @@ const poolLabels: Record<PoolLevel, string> = {
 const views = [
   { id: "quick", label: "Быстро", icon: Zap },
   { id: "draft", label: "Драфт", icon: Crosshair },
+  { id: "counters", label: "Контры", icon: ShieldQuestion },
   { id: "heroes", label: "Герои", icon: BookOpen },
   { id: "pool", label: "Мой пул", icon: Users },
   { id: "meta", label: "Мета", icon: Sparkles },
@@ -321,6 +323,21 @@ export default function HomePage() {
             history={draftHistory}
             onLoadHistory={(item) => setDraft(item.draft)}
             onClearHistory={clearDraftHistory}
+          />
+        </PageWindow>
+      )}
+
+      {view === "counters" && (
+        <PageWindow title="Контры" description="Отдельный инструмент: выбери героя врага и сразу смотри ответы, риски, баны и билд против него.">
+          <CounterToolView
+            draft={draft}
+            pool={pool}
+            onAddPick={addPick}
+            onOpenHero={(name) => {
+              setSelectedHero(name);
+              navigate("heroes");
+            }}
+            onGoDraft={() => navigate("draft")}
           />
         </PageWindow>
       )}
@@ -762,6 +779,127 @@ function DraftView({
       />
     ) : null}
     </>
+  );
+}
+
+
+
+function CounterToolView({ draft, pool, onAddPick, onOpenHero, onGoDraft }: { draft: DraftState; pool: Record<string, PoolLevel>; onAddPick: (side: Side, name: string) => void; onOpenHero: (name: string) => void; onGoDraft: () => void }) {
+  const [targetName, setTargetName] = useState(draft.enemies[0] || heroes[0]?.name || "");
+  const [search, setSearch] = useState("");
+  const target = heroByName.get(targetName) ?? heroes[0];
+  const anyRole = roles[0];
+  const targetState: DraftState = { ...draft, enemies: [target.name], allies: [], allyBans: [], enemyBans: [], role: anyRole, search: "" };
+  const counters = getRecommendations(targetState, pool).slice(0, 8);
+  const dangers = heroes
+    .filter((hero) => getCounterWeight(target.name, hero.name) > 0 || target.counters.includes(hero.name))
+    .map((hero) => scoreHero(hero, { ...draft, enemies: [target.name], role: anyRole, search: "" }, pool))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5);
+  const allies = heroes.filter((hero) => hero.synergies.includes(target.name) || target.synergies.includes(hero.name)).slice(0, 5);
+  const banPlan = getBanRecommendations({ ...draft, allies: [target.name], enemies: [], allyBans: [], enemyBans: [] }).slice(0, 4);
+  const filteredHeroes = heroes.filter((hero) => !search || `${hero.name} ${hero.roles.join(" ")} ${hero.tier}`.toLowerCase().includes(search.toLowerCase()));
+  const buildAgainst = counters[0] ? getBuild(counters[0].hero, { ...draft, enemies: [target.name] }) : null;
+
+  return (
+    <section className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
+      <Card>
+        <CardHeader>
+          <CardTitle>Enemy Select</CardTitle>
+          <CardDescription>Choose an enemy hero to rebuild counters, bans, and answer builds.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input className="pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search enemy hero" />
+          </div>
+          <div className="scroll-soft grid max-h-[620px] grid-cols-2 gap-2 overflow-auto pr-1 sm:grid-cols-3 xl:grid-cols-2">
+            {filteredHeroes.map((hero) => (
+              <button key={hero.name} type="button" onClick={() => setTargetName(hero.name)} className={cn("grid grid-cols-[auto_1fr] items-center gap-2 rounded-md border border-border bg-secondary p-2 text-left", target.name === hero.name && "border-primary")}>
+                <HeroAvatar name={hero.name} size="sm" />
+                <span className="min-w-0">
+                  <strong className="block truncate">{hero.name}</strong>
+                  <span className="text-xs text-muted-foreground">{hero.roles.join(" / ")} ? {hero.tier}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-4">
+        <Card>
+          <CardHeader className="gap-3 md:flex-row md:items-start md:justify-between">
+            <div className="flex items-start gap-3">
+              <HeroAvatar name={target.name} size="xl" />
+              <div>
+                <CardTitle>{target.name}</CardTitle>
+                <CardDescription>{target.notes}</CardDescription>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {target.roles.map((role) => <Badge key={role}>{role}</Badge>)}
+                  <Badge>{target.tier}-tier</Badge>
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => onAddPick("enemies", target.name)}>Add Enemy</Button>
+              <Button variant="outline" onClick={onGoDraft}>Open Draft</Button>
+            </div>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-3">
+            <MatchupBox title="Counters Into Him" items={counters.map((item) => item.hero.name).slice(0, 5)} tone="good" />
+            <MatchupBox title="Risky Picks" items={dangers.map((item) => item.hero.name)} tone="bad" />
+            <MatchupBox title="His Best Allies" items={allies.map((hero) => hero.name)} tone="neutral" />
+          </CardContent>
+        </Card>
+
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <Card>
+            <CardHeader>
+              <CardTitle>Top Counter Picks</CardTitle>
+              <CardDescription>Recommendations are calculated as if {target.name} is already on the enemy team.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3">
+              {counters.map((item) => (
+                <RecommendationCard key={item.hero.name} item={item} onOpenHero={onOpenHero} />
+              ))}
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Ban Plan</CardTitle>
+                <CardDescription>If the enemy drafts around {target.name}, these bans reduce their options.</CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-2">
+                {banPlan.map((item) => (
+                  <Button key={item.hero.name} variant="outline" className="h-auto justify-start gap-2 p-2 text-left" onClick={() => onAddPick("allyBans", item.hero.name)}>
+                    <HeroAvatar name={item.hero.name} size="sm" />
+                    <span className="grid">
+                      <strong>{item.hero.name}</strong>
+                      <span className="text-xs text-muted-foreground">{item.reasons[0]}</span>
+                    </span>
+                  </Button>
+                ))}
+              </CardContent>
+            </Card>
+
+            {buildAgainst && counters[0] ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Answer Build</CardTitle>
+                  <CardDescription>{counters[0].hero.name} into {target.name}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <BuildBox hero={counters[0].hero} build={buildAgainst} />
+                </CardContent>
+              </Card>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
