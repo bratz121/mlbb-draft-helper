@@ -20,6 +20,7 @@ import {
   heroByName,
   heroImage,
   itemImage,
+  scoreHero,
 } from "@/lib/draft";
 import { appVersion, heroes, itemCatalog, roles, teamRoles, type Hero, type Role } from "@/lib/mlbb-data";
 import { getProSignal, proHeroSignals, proMetaSources, proMetaUpdatedAt } from "@/lib/pro-meta";
@@ -440,11 +441,32 @@ function DraftView({
   onOpenHero: (name: string) => void;
   onReset: () => void;
 }) {
+  const [slotRole, setSlotRole] = useState<Role>("Jungle");
+  const [compareNames, setCompareNames] = useState<string[]>([]);
   const unavailable = new Set([...draft.enemies, ...draft.allies, ...getAllBans(draft)]);
   const filteredHeroes = heroes
     .filter((hero) => draft.role === "Любая" || hero.roles.includes(draft.role))
     .filter((hero) => !draft.metaOnly || hero.tier === "S" || hero.tier === "A")
     .filter((hero) => !draft.search || `${hero.name} ${hero.roles.join(" ")} ${hero.tier}`.toLowerCase().includes(draft.search));
+  const slotDraft = { ...draft, role: slotRole, search: "" };
+  const slotRecommendations = getRecommendations(slotDraft, pool);
+  const slotBest = slotRecommendations[0];
+  const slotSafe = slotRecommendations.find((item) => !item.threats.length) ?? slotBest;
+  const slotAggressive =
+    [...slotRecommendations].sort((a, b) => b.directCounters.length - a.directCounters.length || b.score - a.score)[0] ?? slotBest;
+  const slotPool = slotRecommendations.find((item) => ["strong", "medium"].includes(pool[item.hero.name] || "none")) ?? slotBest;
+  const compareItems = compareNames
+    .map((name) => heroByName.get(name))
+    .filter(Boolean)
+    .map((hero) => scoreHero(hero as Hero, slotDraft, pool))
+    .sort((a, b) => b.score - a.score);
+
+  function toggleCompare(name: string) {
+    setCompareNames((current) => {
+      if (current.includes(name)) return current.filter((item) => item !== name);
+      return [...current, name].slice(-3);
+    });
+  }
 
   return (
     <section className="grid gap-4 xl:grid-cols-[330px_minmax(380px,1fr)_minmax(380px,0.9fr)]">
@@ -517,6 +539,20 @@ function DraftView({
         </CardHeader>
         <CardContent className="grid gap-4">
           <DraftScore recommendations={recommendations} />
+          <SlotPicker
+            role={slotRole}
+            onRole={setSlotRole}
+            best={slotBest}
+            safe={slotSafe}
+            aggressive={slotAggressive}
+            poolPick={slotPool}
+            compareItems={compareItems}
+            compareNames={compareNames}
+            suggestions={slotRecommendations.slice(0, 6)}
+            onToggleCompare={toggleCompare}
+            onPick={(name) => onAddPick("allies", name)}
+            onOpenHero={onOpenHero}
+          />
           <div className="grid gap-2">
             <h3 className="flex items-center gap-2 text-sm font-black uppercase text-muted-foreground">
               <Ban className="h-4 w-4" /> Кого банить
@@ -557,6 +593,123 @@ function DraftView({
         </CardContent>
       </Card>
     </section>
+  );
+}
+
+type RecommendationItem = ReturnType<typeof getRecommendations>[number];
+
+function SlotPicker({
+  role,
+  onRole,
+  best,
+  safe,
+  aggressive,
+  poolPick,
+  compareItems,
+  compareNames,
+  suggestions,
+  onToggleCompare,
+  onPick,
+  onOpenHero,
+}: {
+  role: Role;
+  onRole: (role: Role) => void;
+  best?: RecommendationItem;
+  safe?: RecommendationItem;
+  aggressive?: RecommendationItem;
+  poolPick?: RecommendationItem;
+  compareItems: RecommendationItem[];
+  compareNames: string[];
+  suggestions: RecommendationItem[];
+  onToggleCompare: (name: string) => void;
+  onPick: (name: string) => void;
+  onOpenHero: (name: string) => void;
+}) {
+  const cards = [
+    { title: "Лучший слот", item: best, note: "Самый высокий общий балл под выбранную роль." },
+    { title: "Безопасно", item: safe, note: "Меньше риска попасть в уже выбранные контрпики." },
+    { title: "Агрессивно", item: aggressive, note: "Лучше давит текущих врагов и линию." },
+    { title: "Из моего пула", item: poolPick, note: "Приоритет героев, которых ты отметил в пуле." },
+  ];
+
+  return (
+    <div className="grid gap-3 rounded-lg border border-primary/25 bg-background p-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="font-black">Подбор под слот</h3>
+          <p className="text-sm text-muted-foreground">Выбери роль, сравни варианты и сразу добавь героя в наши пики.</p>
+        </div>
+        <div className="flex gap-1 overflow-x-auto pb-1">
+          {teamRoles.map((item) => (
+            <Button key={item} variant={role === item ? "default" : "outline"} size="sm" onClick={() => onRole(item)}>
+              {item}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        {cards.map((card) =>
+          card.item ? (
+            <SlotPickCard key={card.title} title={card.title} item={card.item} note={card.note} onPick={onPick} onOpenHero={onOpenHero} />
+          ) : null,
+        )}
+      </div>
+
+      <div className="grid gap-2 rounded-md border border-border bg-secondary p-2">
+        <div className="flex items-center justify-between gap-2">
+          <h4 className="text-sm font-black uppercase text-muted-foreground">Сравнить до 3 героев</h4>
+          <span className="text-xs text-muted-foreground">{compareNames.length}/3</span>
+        </div>
+        <div className="flex gap-1 overflow-x-auto pb-1">
+          {suggestions.map((item) => (
+            <Button key={item.hero.name} variant={compareNames.includes(item.hero.name) ? "default" : "outline"} size="sm" onClick={() => onToggleCompare(item.hero.name)}>
+              {item.hero.name}
+            </Button>
+          ))}
+        </div>
+        {compareItems.length ? (
+          <div className="grid gap-2">
+            {compareItems.map((item, index) => (
+              <div key={item.hero.name} className="grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-md border border-border bg-background p-2">
+                <strong className="text-primary">#{index + 1}</strong>
+                <button type="button" onClick={() => onOpenHero(item.hero.name)} className="min-w-0 text-left">
+                  <span className="block truncate font-black">{item.hero.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {item.hero.roles.join(" / ")} · {item.directCounters.length ? `закрывает ${item.directCounters.join(", ")}` : item.reasons[0]}
+                  </span>
+                </button>
+                <div className="text-right">
+                  <strong>{item.win}%</strong>
+                  <p className={cn("text-xs", item.threats.length ? "text-destructive" : "text-primary")}>{item.threats.length ? "риск" : "safe"}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">Нажми на кандидатов выше, чтобы увидеть сравнение.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SlotPickCard({ title, item, note, onPick, onOpenHero }: { title: string; item: RecommendationItem; note: string; onPick: (name: string) => void; onOpenHero: (name: string) => void }) {
+  return (
+    <article className="grid gap-2 rounded-md border border-border bg-secondary p-2">
+      <div className="flex items-center gap-2">
+        <HeroAvatar name={item.hero.name} size="sm" />
+        <button type="button" onClick={() => onOpenHero(item.hero.name)} className="min-w-0 text-left">
+          <span className="block truncate font-black">{item.hero.name}</span>
+          <span className="text-xs text-muted-foreground">{title}</span>
+        </button>
+        <strong className="ml-auto">{item.win}%</strong>
+      </div>
+      <p className="text-xs text-muted-foreground">{note}</p>
+      {item.directCounters.length ? <p className="text-xs"><span className="font-black text-primary">Закрывает: </span>{item.directCounters.join(", ")}</p> : null}
+      {item.threats.length ? <p className="text-xs"><span className="font-black text-destructive">Риск: </span>{item.threats.join(", ")}</p> : null}
+      <Button size="sm" onClick={() => onPick(item.hero.name)}>Добавить в наши пики</Button>
+    </article>
   );
 }
 
