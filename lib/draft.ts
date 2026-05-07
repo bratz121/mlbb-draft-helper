@@ -1,4 +1,5 @@
 import { counterChart, heroes, itemCatalog, type Hero, type Role } from "@/lib/mlbb-data";
+import { getProBuildPlan, getProSignal } from "@/lib/pro-meta";
 import { slugify } from "@/lib/utils";
 
 export type Side = "enemies" | "allies" | "allyBans" | "enemyBans";
@@ -151,9 +152,15 @@ export function getCounterWeight(counterName: string, targetName: string) {
 
 export function scoreHero(hero: Hero, state: DraftState, pool: Record<string, PoolLevel>) {
   let score = hero.meta;
+  const proSignal = getProSignal(hero.name);
   const reasons = [`Мета ${hero.tier}: ${hero.meta}`];
   const directCounters: string[] = [];
   const threats: string[] = [];
+
+  if (proSignal) {
+    score += proSignal.scoreBoost;
+    reasons.push(`Pro-сигнал ${proSignal.tier}: ${proSignal.evidence}`);
+  }
 
   state.enemies.forEach((enemyName) => {
     const counterWeight = getCounterWeight(hero.name, enemyName);
@@ -225,7 +232,12 @@ export function getBanRecommendations(state: DraftState) {
     .filter((hero) => !unavailable.has(hero.name))
     .map((hero) => {
       let score = hero.meta;
+      const proSignal = getProSignal(hero.name);
       const reasons: string[] = [];
+      if (proSignal) {
+        score += proSignal.banPriority;
+        reasons.push(`Pro ban priority: ${proSignal.evidence}`);
+      }
       state.allies.forEach((allyName) => {
         const weight = getCounterWeight(hero.name, allyName);
         if (weight) {
@@ -268,7 +280,8 @@ export function getHeroStageScores(hero: Hero) {
 export function getBuild(hero: Hero, state: DraftState) {
   const enemies = state.enemies.map((name) => heroByName.get(name)).filter(Boolean) as Hero[];
   const profileKey = getProfileKey(hero);
-  const items = [...buildProfiles[profileKey]];
+  const proPlan = getProBuildPlan(hero.name);
+  const items = [...(proPlan?.items ?? buildProfiles[profileKey])];
   const notes: string[] = [];
   const hasHealing = enemies.some((enemy) => healingHeroes.has(enemy.name));
   const hasFront = enemies.filter((enemy) => hasFrontline(enemy)).length >= 2;
@@ -288,8 +301,15 @@ export function getBuild(hero: Hero, state: DraftState) {
   }
 
   return {
-    summary: notes.length ? `Адаптация: ${notes.join(", ")}.` : "Базовый pro/high-rank паттерн под роль героя.",
-    source: "MLBB.io / MLBBHub паттерны, локальная адаптация под драфт",
+    summary: notes.length
+      ? `Адаптация: ${notes.join(", ")}.`
+      : proPlan
+        ? `Pro-шаблон: ${proPlan.style}. Уверенность: ${proPlan.confidence}.`
+        : "Базовый pro/high-rank паттерн под роль героя.",
+    source: proPlan
+      ? `${proPlan.sourceLabel}; сверено с pro-сигналами MPL и high-rank метой`
+      : "Ролевой pro/high-rank паттерн, локальная адаптация под драфт",
+    flexItems: proPlan?.flexItems ?? [],
     items: items.map((id, index) => ({
       id,
       timing: ["0:45-1:30", "3:00-4:30", "5:30-7:30", "8:00-10:30", "11:00-14:00", "15:00+"][index] || "по ситуации",

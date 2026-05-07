@@ -21,6 +21,7 @@ import {
   itemImage,
 } from "@/lib/draft";
 import { appVersion, heroes, itemCatalog, roles, teamRoles, type Hero, type Role } from "@/lib/mlbb-data";
+import { getProSignal, proHeroSignals, proMetaSources, proMetaUpdatedAt } from "@/lib/pro-meta";
 import { cn } from "@/lib/utils";
 
 type View = "draft" | "heroes" | "pool" | "meta";
@@ -568,6 +569,16 @@ function BuildBox({ hero, build }: { hero: Hero; build: ReturnType<typeof getBui
         <p className="text-sm text-muted-foreground">{build.summary}</p>
         <p className="text-xs text-muted-foreground">Основа: {build.source}</p>
       </div>
+      {build.flexItems.length ? (
+        <div className="rounded-md border border-border bg-secondary p-2">
+          <p className="text-xs font-black uppercase text-muted-foreground">Flex-слоты pro-игроков</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {build.flexItems.map((item) => (
+              <Badge key={item}>{itemCatalog[item]?.ru || item}</Badge>
+            ))}
+          </div>
+        </div>
+      ) : null}
       <div className="grid gap-2">
         {build.items.map((item, index) => (
           <div key={`${hero.name}-${item.id}-${index}`} className="grid grid-cols-[42px_1fr] gap-2 rounded-md border border-border bg-secondary p-2">
@@ -632,35 +643,82 @@ function PoolView({ pool, onSetPool }: { pool: Record<string, PoolLevel>; onSetP
 }
 
 function MetaView({ onSelect }: { onSelect: (name: string) => void }) {
+  const signals = Object.values(proHeroSignals).sort((a, b) => b.scoreBoost + b.banPriority - (a.scoreBoost + a.banPriority));
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Мета-обзор</CardTitle>
-        <CardDescription>Лучшие герои по ролям из текущей локальной базы.</CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-        {teamRoles.map((role) => (
-          <div key={role} className="rounded-lg border border-border bg-secondary p-3">
-            <h3 className="mb-3 font-black">{role}</h3>
-            <div className="grid gap-2">
-              {heroes
-                .filter((hero) => hero.roles.includes(role))
-                .sort((a, b) => b.meta - a.meta)
-                .slice(0, 8)
-                .map((hero) => (
-                  <button key={`${role}-${hero.name}`} type="button" onClick={() => onSelect(hero.name)} className="grid grid-cols-[32px_1fr] items-center gap-2 rounded-md border border-border bg-background p-2 text-left">
-                    <HeroAvatar name={hero.name} size="xs" />
-                    <span>
-                      <strong className="block truncate text-sm">{hero.name}</strong>
-                      <span className="text-xs text-muted-foreground">{hero.tier}-tier · {hero.meta}</span>
+    <section className="grid gap-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Pro-сигналы меты</CardTitle>
+          <CardDescription>Срез по профессиональным матчам MPL ID/PH S17, patch 2.1.67, плюс high-rank проверка. Обновлено: {proMetaUpdatedAt}.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 lg:grid-cols-[1fr_360px]">
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {signals.slice(0, 12).map((signal) => {
+              const hero = heroByName.get(signal.hero);
+              return (
+                <button key={signal.hero} type="button" onClick={() => onSelect(signal.hero)} className="grid gap-2 rounded-lg border border-border bg-secondary p-3 text-left hover:border-primary">
+                  <span className="flex items-center gap-3">
+                    {hero ? <HeroAvatar name={hero.name} size="sm" /> : null}
+                    <span className="min-w-0">
+                      <strong className="block truncate">{signal.hero}</strong>
+                      <span className="text-xs text-muted-foreground">{signal.roles.join(" / ")} · {signal.tier}</span>
                     </span>
-                  </button>
-                ))}
-            </div>
+                  </span>
+                  <span className="text-sm text-muted-foreground">{signal.evidence}</span>
+                  <span className="flex flex-wrap gap-1">
+                    <Badge>+{signal.scoreBoost} к пику</Badge>
+                    <Badge>ban +{signal.banPriority}</Badge>
+                  </span>
+                </button>
+              );
+            })}
           </div>
-        ))}
-      </CardContent>
-    </Card>
+
+          <div className="grid content-start gap-2 rounded-lg border border-border bg-background p-3">
+            <h3 className="font-black">Источники</h3>
+            {Object.values(proMetaSources).map((source) => (
+              <a key={source.url} href={source.url} target="_blank" rel="noreferrer" className="rounded-md border border-border bg-secondary p-3 text-sm hover:border-primary">
+                <strong className="block">{source.name}</strong>
+                <span className="text-muted-foreground">{source.note}</span>
+              </a>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Мета по ролям</CardTitle>
+          <CardDescription>Локальная база теперь усиливается pro-сигналами: contested герои получают бонус в рекомендациях и банах.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          {teamRoles.map((role) => (
+            <div key={role} className="rounded-lg border border-border bg-secondary p-3">
+              <h3 className="mb-3 font-black">{role}</h3>
+              <div className="grid gap-2">
+                {heroes
+                  .filter((hero) => hero.roles.includes(role))
+                  .sort((a, b) => b.meta + (getProSignal(b.name)?.scoreBoost ?? 0) - (a.meta + (getProSignal(a.name)?.scoreBoost ?? 0)))
+                  .slice(0, 8)
+                  .map((hero) => {
+                    const signal = getProSignal(hero.name);
+                    return (
+                      <button key={`${role}-${hero.name}`} type="button" onClick={() => onSelect(hero.name)} className="grid grid-cols-[32px_1fr] items-center gap-2 rounded-md border border-border bg-background p-2 text-left">
+                        <HeroAvatar name={hero.name} size="xs" />
+                        <span>
+                          <strong className="block truncate text-sm">{hero.name}</strong>
+                          <span className="text-xs text-muted-foreground">{hero.tier}-tier · {hero.meta}{signal ? ` · pro ${signal.tier}` : ""}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </section>
   );
 }
 
