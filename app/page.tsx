@@ -751,6 +751,32 @@ function BuildBox({ hero, build }: { hero: Hero; build: ReturnType<typeof getBui
         <p className="text-sm text-muted-foreground">{build.summary}</p>
         <p className="text-xs text-muted-foreground">Основа: {build.source}</p>
       </div>
+      <div className="grid gap-2 rounded-md border border-border bg-secondary p-3">
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div>
+            <p className="text-xs font-black uppercase text-muted-foreground">Эмблема</p>
+            <strong>{build.loadout.emblem}</strong>
+            <div className="mt-2 flex flex-wrap gap-1">
+              {build.loadout.talents.map((talent) => (
+                <Badge key={talent}>{talent}</Badge>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-black uppercase text-muted-foreground">Боевой спелл</p>
+            <strong>{build.loadout.spell}</strong>
+            <p className="mt-1 text-xs text-muted-foreground">{build.loadout.note}</p>
+          </div>
+        </div>
+        <div className="grid gap-1">
+          {build.loadout.spellOptions.map((option) => (
+            <p key={option.spell} className="text-xs text-muted-foreground">
+              <span className="font-black text-foreground">{option.spell}: </span>
+              {option.when}
+            </p>
+          ))}
+        </div>
+      </div>
       {build.flexItems.length ? (
         <div className="rounded-md border border-border bg-secondary p-2">
           <p className="text-xs font-black uppercase text-muted-foreground">Flex-слоты pro-игроков</p>
@@ -770,6 +796,18 @@ function BuildBox({ hero, build }: { hero: Hero; build: ReturnType<typeof getBui
               <p className="text-xs font-bold text-primary">{item.timing}</p>
               <p className="text-xs text-muted-foreground">{item.reason}</p>
             </div>
+          </div>
+        ))}
+      </div>
+      <div className="grid gap-2">
+        <p className="text-xs font-black uppercase text-muted-foreground">Варианты по ситуации</p>
+        {build.variants.map((variant) => (
+          <div key={variant.name} className="rounded-md border border-border bg-secondary p-2">
+            <div className="flex items-center justify-between gap-2">
+              <strong className="text-sm">{variant.name}</strong>
+              <span className="text-xs text-muted-foreground">{variant.items.slice(0, 3).map((item) => itemCatalog[item]?.ru || item).join(" -> ")}</span>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">{variant.reason}</p>
           </div>
         ))}
       </div>

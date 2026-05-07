@@ -22,6 +22,20 @@ export type BuildItem = {
   reason: string;
 };
 
+export type BuildVariant = {
+  name: string;
+  items: string[];
+  reason: string;
+};
+
+export type HeroLoadout = {
+  emblem: string;
+  talents: string[];
+  spell: string;
+  spellOptions: Array<{ spell: string; when: string }>;
+  note: string;
+};
+
 export type ScoreBreakdownItem = {
   label: string;
   value: number;
@@ -390,6 +404,8 @@ export function getBuild(hero: Hero, state: DraftState) {
     source: proPlan
       ? `${proPlan.sourceLabel}; сверено с pro-сигналами MPL и high-rank метой`
       : "Ролевой pro/high-rank паттерн, локальная адаптация под драфт",
+    loadout: getHeroLoadout(hero, enemies, profileKey),
+    variants: getBuildVariants(hero, enemies, profileKey, items),
     flexItems: proPlan?.flexItems ?? [],
     items: items.map((id, index) => ({
       id,
@@ -429,6 +445,162 @@ function getItemReason(itemName: string, hero: Hero, profile: string) {
   if (itemName === "War Axe" || itemName === "Bloodlust Axe") return "сила в длинных драках и sustain";
   if (itemName === "Flask of the Oasis" || itemName === "Fleeting Time") return "сейв союзников и частые ультимейты";
   return profile === "tank" ? "плотность для входа и защиты команды" : `усиливает основной урон ${hero.name}`;
+}
+
+function getHeroLoadout(hero: Hero, enemies: Hero[], profile: keyof typeof buildProfiles): HeroLoadout {
+  const hasControl = enemies.some((enemy) => controlHeroes.has(enemy.name));
+  const hasBurst = enemies.filter((enemy) => magicDamageHeroes.has(enemy.name) || enemy.roles.includes("Jungle")).length >= 2;
+  const hasFront = enemies.filter(hasFrontline).length >= 2;
+
+  if (profile === "tank") {
+    return {
+      emblem: "Танк",
+      talents: ["Vitality", "Tenacity", "Concussive Blast"],
+      spell: hero.roles.includes("Roam") ? "Flicker" : "Vengeance",
+      spellOptions: [
+        { spell: "Flicker", when: "для внезапного engage или сейва позиции" },
+        { spell: "Vengeance", when: "против burst и долгих драк в центре файта" },
+        { spell: "Petrify", when: "если команде нужен дополнительный контроль" },
+      ],
+      note: "Задача - начать драку, пережить первый урон и дать команде пространство.",
+    };
+  }
+
+  if (profile === "support") {
+    return {
+      emblem: "Поддержка",
+      talents: ["Agility", "Pull Yourself Together", "Focusing Mark"],
+      spell: hasControl ? "Purify" : "Flicker",
+      spellOptions: [
+        { spell: "Flicker", when: "для сейва позиции и неожиданных заходов" },
+        { spell: "Purify", when: "против цепного контроля" },
+        { spell: "Aegis", when: "если нужно прикрыть gold/mid керри" },
+      ],
+      note: "Ставь приоритет на сейв ключевого керри и тайминг ультимейта.",
+    };
+  }
+
+  if (profile === "mage" || profile === "burstMage") {
+    return {
+      emblem: "Маг",
+      talents: ["Rupture", "Bargain Hunter", profile === "burstMage" ? "Lethal Ignition" : "Impure Rage"],
+      spell: hasControl ? "Purify" : "Flicker",
+      spellOptions: [
+        { spell: "Flicker", when: "стандарт для позиции и добивания" },
+        { spell: "Purify", when: "если враги ловят контролем" },
+        { spell: "Flameshot", when: "если нужен дальний poke и добивание" },
+      ],
+      note: hasFront ? "Против плотного фронта быстрее выходи в пробой." : "Держи дистанцию и играй от первого контроля команды.",
+    };
+  }
+
+  if (profile === "marksman" || profile === "critMarksman") {
+    return {
+      emblem: "Стрелок",
+      talents: ["Fatal", "Weapon Master", "Quantum Charge"],
+      spell: hasBurst ? "Aegis" : "Flicker",
+      spellOptions: [
+        { spell: "Flicker", when: "универсальный сейв и reposition" },
+        { spell: "Aegis", when: "против dive/burst ассасинов" },
+        { spell: "Purify", when: "против hard CC, который гарантирует смерть" },
+      ],
+      note: "Твой пик раскрывается через предметы, поэтому не разменивайся без вижена и фронта.",
+    };
+  }
+
+  if (profile === "assassin") {
+    return {
+      emblem: "Ассасин",
+      talents: ["Rupture", "Seasoned Hunter", "Killing Spree"],
+      spell: "Retribution",
+      spellOptions: [
+        { spell: "Ice Retribution", when: "чтобы догонять мобильных керри" },
+        { spell: "Flame Retribution", when: "для дуэли и burst trade" },
+        { spell: "Bloody Retribution", when: "если нужно жить в затяжной драке" },
+      ],
+      note: "Ищи изолированную цель, не начинай первым в плотный контроль.",
+    };
+  }
+
+  return {
+    emblem: "Боец",
+    talents: ["Firmness", "Festival of Blood", "Brave Smite"],
+    spell: hero.roles.includes("Jungle") ? "Retribution" : "Flicker",
+    spellOptions: [
+      { spell: "Flicker", when: "для engage, добивания или выхода после входа" },
+      { spell: "Vengeance", when: "если враги играют через burst и автоатаки" },
+      { spell: "Petrify", when: "если нужно гарантировать контроль в комбо" },
+    ],
+    note: "Выбирай момент входа после траты ключевого контроля врага.",
+  };
+}
+
+function getBuildVariants(hero: Hero, enemies: Hero[], profile: keyof typeof buildProfiles, currentItems: string[]): BuildVariant[] {
+  const variants: BuildVariant[] = [
+    {
+      name: "Core",
+      items: currentItems,
+      reason: "Основной порядок покупки под роль героя и текущий драфт.",
+    },
+  ];
+  const hasHealing = enemies.some((enemy) => healingHeroes.has(enemy.name));
+  const hasFront = enemies.filter(hasFrontline).length >= 2;
+  const magicCount = enemies.filter((enemy) => magicDamageHeroes.has(enemy.name)).length;
+  const physicalDive = enemies.filter((enemy) => enemy.roles.includes("Jungle") || ["Chou", "Saber", "Hayabusa", "Fanny", "Ling", "Lancelot"].includes(enemy.name)).length;
+
+  if (hasHealing) {
+    variants.push({
+      name: "Против лечения",
+      items: withSituationalItem(currentItems, profile === "mage" || profile === "burstMage" ? "Necklace of Durance" : "Sea Halberd"),
+      reason: "Бери раньше, если у врага Estes, Floryn, Angela, Ruby, Alpha, Uranus или сильный sustain.",
+    });
+  }
+
+  if (hasFront) {
+    variants.push({
+      name: "Против танков",
+      items: withSituationalItem(currentItems, profile === "mage" || profile === "burstMage" ? "Divine Glaive" : "Malefic Roar"),
+      reason: "Ускоряет пробой плотного фронта и героев с ранней защитой.",
+    });
+  }
+
+  if (magicCount >= 2 && ["tank", "fighter", "sustainFighter"].includes(profile)) {
+    variants.push({
+      name: "Против маг burst",
+      items: withSituationalItem(currentItems, magicCount >= 3 ? "Radiant Armor" : "Athena's Shield"),
+      reason: "Защищает от магического взрыва и poke до начала драки.",
+    });
+  }
+
+  if (physicalDive >= 2 && profile !== "tank" && profile !== "support") {
+    variants.push({
+      name: "Если тебя фокусят",
+      items: withSituationalItem(currentItems, profile === "marksman" || profile === "critMarksman" ? "Wind of Nature" : "Immortality"),
+      reason: "Сдвигай defensive item раньше, если тебя постоянно ловят первым.",
+    });
+  }
+
+  const snowballItem =
+    profile === "mage" || profile === "burstMage"
+      ? "Holy Crystal"
+      : profile === "tank" || profile === "support"
+        ? "Immortality"
+        : "Blade of Despair";
+
+  variants.push({
+    name: "Когда ведём",
+    items: withSituationalItem(currentItems, snowballItem),
+    reason: "Снежный ком: больше урона, быстрее закрываешь карту и объекты.",
+  });
+
+  return variants.slice(0, 5);
+}
+
+function withSituationalItem(items: string[], item: string) {
+  if (items.includes(item)) return items;
+  const next = [...items];
+  next[Math.max(2, next.length - 2)] = item;
+  return next;
 }
 
 export function getHeroMatchups(hero: Hero) {
