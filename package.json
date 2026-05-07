@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "export": "next build",
-    "lint": "next lint"
+    "lint": "next lint",
+    "seed:supabase": "node scripts/generate-supabase-seed.mjs"
   },
   "repository": {
     "type": "git",
