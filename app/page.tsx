@@ -588,6 +588,7 @@ function DraftView({
 
   return (
     <section className="grid gap-4 xl:grid-cols-[330px_minmax(380px,1fr)_minmax(380px,0.9fr)]">
+      <DraftBoard draft={draft} onPatch={onPatch} onRemove={onRemovePick} onOpenHero={onOpenHero} />
       <Card>
         <CardHeader className="flex-row items-center justify-between">
           <div>
@@ -734,6 +735,112 @@ function DraftView({
         </CardContent>
       </Card>
     </section>
+  );
+}
+
+function DraftBoard({ draft, onPatch, onRemove, onOpenHero }: { draft: DraftState; onPatch: (patch: Partial<DraftState>) => void; onRemove: (side: Side, name: string) => void; onOpenHero: (name: string) => void }) {
+  return (
+    <Card className="xl:col-span-3">
+      <CardHeader className="gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <CardTitle>Доска драфта</CardTitle>
+          <CardDescription>5v5 слоты, баны и текущая сторона выбора.</CardDescription>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {(Object.keys(sideLabels) as Side[]).map((side) => (
+            <Button key={side} variant={draft.activeSide === side ? "default" : "outline"} size="sm" onClick={() => onPatch({ activeSide: side })}>
+              {sideLabels[side]}
+            </Button>
+          ))}
+        </div>
+      </CardHeader>
+      <CardContent className="grid gap-3">
+        <div className="grid gap-2 lg:grid-cols-2">
+          <DraftBoardTeam title="Враги" side="enemies" bans={draft.enemyBans} picks={draft.enemies} active={draft.activeSide === "enemies"} onPickSide={() => onPatch({ activeSide: "enemies" })} onBanSide={() => onPatch({ activeSide: "enemyBans" })} onRemove={onRemove} onOpenHero={onOpenHero} />
+          <DraftBoardTeam title="Мы" side="allies" bans={draft.allyBans} picks={draft.allies} active={draft.activeSide === "allies"} onPickSide={() => onPatch({ activeSide: "allies" })} onBanSide={() => onPatch({ activeSide: "allyBans" })} onRemove={onRemove} onOpenHero={onOpenHero} />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function DraftBoardTeam({
+  title,
+  side,
+  bans,
+  picks,
+  active,
+  onPickSide,
+  onBanSide,
+  onRemove,
+  onOpenHero,
+}: {
+  title: string;
+  side: "enemies" | "allies";
+  bans: string[];
+  picks: string[];
+  active: boolean;
+  onPickSide: () => void;
+  onBanSide: () => void;
+  onRemove: (side: Side, name: string) => void;
+  onOpenHero: (name: string) => void;
+}) {
+  return (
+    <div className={cn("grid gap-3 rounded-lg border bg-secondary p-3", active ? "border-primary/55" : "border-border")}>
+      <div className="flex items-center justify-between gap-2">
+        <button type="button" onClick={onPickSide} className="text-left">
+          <h3 className="font-black">{title}</h3>
+          <p className="text-xs text-muted-foreground">{picks.length}/5 пиков</p>
+        </button>
+        <Badge className={active ? "border-primary/40 text-primary" : ""}>{active ? "выбираем" : "ожидает"}</Badge>
+      </div>
+      <div className="grid grid-cols-5 gap-2">
+        {Array.from({ length: 5 }).map((_, index) => {
+          const name = picks[index];
+          const hero = name ? heroByName.get(name) : null;
+          const role = teamRoles[index];
+          return (
+            <div key={`${side}-${index}`} className="grid gap-1">
+              <button type="button" onClick={name ? () => onOpenHero(name) : onPickSide} className={cn("grid aspect-[0.82] place-items-center overflow-hidden rounded-md border bg-background text-left", name ? "border-primary/30" : "border-dashed border-border")}>
+                {name && hero ? <img className="h-full w-full object-cover" src={heroImage(name)} alt="" /> : <span className="text-xs font-black text-muted-foreground">{index + 1}</span>}
+              </button>
+              <div className="min-w-0">
+                <p className="truncate text-xs font-black">{name || role}</p>
+                {name ? (
+                  <button type="button" className="text-xs text-muted-foreground hover:text-destructive" onClick={() => onRemove(side, name)}>
+                    убрать
+                  </button>
+                ) : (
+                  <span className="text-xs text-muted-foreground">{role}</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="grid gap-2">
+        <button type="button" onClick={onBanSide} className="text-left text-xs font-black uppercase text-muted-foreground">
+          Баны {bans.length}/5
+        </button>
+        <div className="grid grid-cols-5 gap-2">
+          {Array.from({ length: 5 }).map((_, index) => {
+            const name = bans[index];
+            return (
+              <button key={`${side}-ban-${index}`} type="button" onClick={name ? () => onOpenHero(name) : onBanSide} className="grid min-h-12 place-items-center rounded-md border border-border bg-background text-xs">
+                {name ? (
+                  <span className="grid justify-items-center gap-1">
+                    <HeroAvatar name={name} size="xs" />
+                    <span className="max-w-12 truncate">{name}</span>
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">ban</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
   );
 }
 

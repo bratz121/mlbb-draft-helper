@@ -16,7 +16,7 @@ export type ItemInfo = { ru: string; slug: string };
 
 export const teamRoles = ['Jungle', 'EXP', 'Mid', 'Gold', 'Roam'] as const;
 export const roles = ['Любая', ...teamRoles] as const;
-export const appVersion = '2026.05.07.15';
+export const appVersion = '2026.05.07.16';
 
 export const itemCatalog = {
   "Swift Boots": {
