@@ -31,8 +31,9 @@
   body {
     @apply min-h-screen bg-background text-foreground antialiased;
     background:
-      radial-gradient(circle at 18% 0%, rgba(76, 201, 176, 0.18), transparent 28rem),
-      linear-gradient(135deg, #101215 0%, #151820 55%, #111317 100%);
+      radial-gradient(circle at 12% -8%, rgba(76, 201, 176, 0.18), transparent 26rem),
+      radial-gradient(circle at 86% 8%, rgba(244, 184, 96, 0.1), transparent 24rem),
+      linear-gradient(135deg, #101215 0%, #151820 52%, #101216 100%);
   }
 }
 
