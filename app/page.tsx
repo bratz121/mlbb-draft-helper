@@ -38,6 +38,12 @@ type DraftHistoryItem = {
   draft: DraftState;
 };
 
+type HeroPickerState = {
+  side: Side;
+  role: Role | "Любая";
+  title: string;
+} | null;
+
 const draftHistoryKey = "mlbbDraftHistory";
 
 const emptyDraft: DraftState = {
@@ -560,6 +566,7 @@ function DraftView({
 }) {
   const [slotRole, setSlotRole] = useState<Role>("Jungle");
   const [compareNames, setCompareNames] = useState<string[]>([]);
+  const [picker, setPicker] = useState<HeroPickerState>(null);
   const unavailable = new Set([...draft.enemies, ...draft.allies, ...getAllBans(draft)]);
   const filteredHeroes = heroes
     .filter((hero) => draft.role === "Любая" || hero.roles.includes(draft.role))
@@ -586,9 +593,15 @@ function DraftView({
     });
   }
 
+  function openPicker(side: Side, role: Role | "Любая" = "Любая") {
+    onPatch({ activeSide: side });
+    setPicker({ side, role, title: `${sideLabels[side]}${role !== "Любая" ? ` · ${role}` : ""}` });
+  }
+
   return (
+    <>
     <section className="grid gap-4 xl:grid-cols-[330px_minmax(380px,1fr)_minmax(380px,0.9fr)]">
-      <DraftBoard draft={draft} onPatch={onPatch} onRemove={onRemovePick} onOpenHero={onOpenHero} />
+      <DraftBoard draft={draft} onPatch={onPatch} onRemove={onRemovePick} onOpenHero={onOpenHero} onOpenPicker={openPicker} />
       <Card>
         <CardHeader className="flex-row items-center justify-between">
           <div>
@@ -735,10 +748,24 @@ function DraftView({
         </CardContent>
       </Card>
     </section>
+    {picker ? (
+      <HeroPickerModal
+        picker={picker}
+        draft={draft}
+        pool={pool}
+        onClose={() => setPicker(null)}
+        onPick={(side, name) => {
+          onAddPick(side, name);
+          setPicker(null);
+        }}
+        onOpenHero={onOpenHero}
+      />
+    ) : null}
+    </>
   );
 }
 
-function DraftBoard({ draft, onPatch, onRemove, onOpenHero }: { draft: DraftState; onPatch: (patch: Partial<DraftState>) => void; onRemove: (side: Side, name: string) => void; onOpenHero: (name: string) => void }) {
+function DraftBoard({ draft, onPatch, onRemove, onOpenHero, onOpenPicker }: { draft: DraftState; onPatch: (patch: Partial<DraftState>) => void; onRemove: (side: Side, name: string) => void; onOpenHero: (name: string) => void; onOpenPicker: (side: Side, role?: Role | "Любая") => void }) {
   return (
     <Card className="xl:col-span-3">
       <CardHeader className="gap-3 md:flex-row md:items-center md:justify-between">
@@ -756,8 +783,8 @@ function DraftBoard({ draft, onPatch, onRemove, onOpenHero }: { draft: DraftStat
       </CardHeader>
       <CardContent className="grid gap-3">
         <div className="grid gap-2 lg:grid-cols-2">
-          <DraftBoardTeam title="Враги" side="enemies" bans={draft.enemyBans} picks={draft.enemies} active={draft.activeSide === "enemies"} onPickSide={() => onPatch({ activeSide: "enemies" })} onBanSide={() => onPatch({ activeSide: "enemyBans" })} onRemove={onRemove} onOpenHero={onOpenHero} />
-          <DraftBoardTeam title="Мы" side="allies" bans={draft.allyBans} picks={draft.allies} active={draft.activeSide === "allies"} onPickSide={() => onPatch({ activeSide: "allies" })} onBanSide={() => onPatch({ activeSide: "allyBans" })} onRemove={onRemove} onOpenHero={onOpenHero} />
+          <DraftBoardTeam title="Враги" side="enemies" banSide="enemyBans" bans={draft.enemyBans} picks={draft.enemies} active={draft.activeSide === "enemies"} onPickSide={() => onPatch({ activeSide: "enemies" })} onBanSide={() => onPatch({ activeSide: "enemyBans" })} onRemove={onRemove} onOpenHero={onOpenHero} onOpenPicker={onOpenPicker} />
+          <DraftBoardTeam title="Мы" side="allies" banSide="allyBans" bans={draft.allyBans} picks={draft.allies} active={draft.activeSide === "allies"} onPickSide={() => onPatch({ activeSide: "allies" })} onBanSide={() => onPatch({ activeSide: "allyBans" })} onRemove={onRemove} onOpenHero={onOpenHero} onOpenPicker={onOpenPicker} />
         </div>
       </CardContent>
     </Card>
@@ -767,6 +794,7 @@ function DraftBoard({ draft, onPatch, onRemove, onOpenHero }: { draft: DraftStat
 function DraftBoardTeam({
   title,
   side,
+  banSide,
   bans,
   picks,
   active,
@@ -774,9 +802,11 @@ function DraftBoardTeam({
   onBanSide,
   onRemove,
   onOpenHero,
+  onOpenPicker,
 }: {
   title: string;
   side: "enemies" | "allies";
+  banSide: "allyBans" | "enemyBans";
   bans: string[];
   picks: string[];
   active: boolean;
@@ -784,6 +814,7 @@ function DraftBoardTeam({
   onBanSide: () => void;
   onRemove: (side: Side, name: string) => void;
   onOpenHero: (name: string) => void;
+  onOpenPicker: (side: Side, role?: Role | "Любая") => void;
 }) {
   return (
     <div className={cn("grid gap-3 rounded-lg border bg-secondary p-3", active ? "border-primary/55" : "border-border")}>
@@ -801,7 +832,7 @@ function DraftBoardTeam({
           const role = teamRoles[index];
           return (
             <div key={`${side}-${index}`} className="grid gap-1">
-              <button type="button" onClick={name ? () => onOpenHero(name) : onPickSide} className={cn("grid aspect-[0.82] place-items-center overflow-hidden rounded-md border bg-background text-left", name ? "border-primary/30" : "border-dashed border-border")}>
+              <button type="button" onClick={name ? () => onOpenHero(name) : () => onOpenPicker(side, role)} className={cn("grid aspect-[0.82] place-items-center overflow-hidden rounded-md border bg-background text-left", name ? "border-primary/30" : "border-dashed border-border")}>
                 {name && hero ? <img className="h-full w-full object-cover" src={heroImage(name)} alt="" /> : <span className="text-xs font-black text-muted-foreground">{index + 1}</span>}
               </button>
               <div className="min-w-0">
@@ -826,7 +857,7 @@ function DraftBoardTeam({
           {Array.from({ length: 5 }).map((_, index) => {
             const name = bans[index];
             return (
-              <button key={`${side}-ban-${index}`} type="button" onClick={name ? () => onOpenHero(name) : onBanSide} className="grid min-h-12 place-items-center rounded-md border border-border bg-background text-xs">
+              <button key={`${side}-ban-${index}`} type="button" onClick={name ? () => onOpenHero(name) : () => onOpenPicker(banSide)} className="grid min-h-12 place-items-center rounded-md border border-border bg-background text-xs">
                 {name ? (
                   <span className="grid justify-items-center gap-1">
                     <HeroAvatar name={name} size="xs" />
@@ -862,6 +893,118 @@ function DraftHistoryList({ history, onLoad }: { history: DraftHistoryItem[]; on
 }
 
 type RecommendationItem = ReturnType<typeof getRecommendations>[number];
+
+function HeroPickerModal({
+  picker,
+  draft,
+  pool,
+  onClose,
+  onPick,
+  onOpenHero,
+}: {
+  picker: NonNullable<HeroPickerState>;
+  draft: DraftState;
+  pool: Record<string, PoolLevel>;
+  onClose: () => void;
+  onPick: (side: Side, name: string) => void;
+  onOpenHero: (name: string) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [role, setRole] = useState<Role | "Любая">(picker.role);
+  const unavailable = new Set([...draft.enemies, ...draft.allies, ...getAllBans(draft)]);
+  const isBan = picker.side === "allyBans" || picker.side === "enemyBans";
+  const targetCount = draft[picker.side].length;
+  const recDraft = { ...draft, role, search: "" };
+  const quickRecs = isBan ? [] : getRecommendations(recDraft, pool).slice(0, 3);
+  const list = heroes
+    .filter((hero) => role === "Любая" || hero.roles.includes(role))
+    .filter((hero) => !search || `${hero.name} ${hero.roles.join(" ")} ${hero.tier}`.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      const poolScore = (pool[b.name] === "strong" ? 2 : pool[b.name] === "medium" ? 1 : 0) - (pool[a.name] === "strong" ? 2 : pool[a.name] === "medium" ? 1 : 0);
+      if (poolScore) return poolScore;
+      return b.meta - a.meta;
+    });
+
+  function pick(name: string) {
+    if (unavailable.has(name) || targetCount >= 5) return;
+    onPick(picker.side, name);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-end bg-black/70 p-2 backdrop-blur sm:place-items-center sm:p-4">
+      <div className="grid max-h-[92vh] w-full max-w-5xl gap-3 overflow-hidden rounded-lg border border-border bg-card p-3 shadow-2xl shadow-black/60">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-black">Выбор героя</h2>
+            <p className="text-sm text-muted-foreground">{picker.title} · {targetCount}/5</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={onClose}>Закрыть</Button>
+        </div>
+
+        <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="relative">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input className="pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Найти героя" autoFocus />
+          </div>
+          <div className="flex gap-1 overflow-x-auto pb-1">
+            {roles.map((item) => (
+              <Button key={item} variant={role === item ? "default" : "outline"} size="sm" onClick={() => setRole(item)}>
+                {item}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        {quickRecs.length ? (
+          <div className="grid gap-2 rounded-md border border-primary/25 bg-background p-2">
+            <p className="text-xs font-black uppercase text-muted-foreground">Быстрые советы под слот</p>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {quickRecs.map((item) => (
+                <button key={item.hero.name} type="button" onClick={() => pick(item.hero.name)} disabled={unavailable.has(item.hero.name) || targetCount >= 5} className="grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-md border border-border bg-secondary p-2 text-left disabled:opacity-40">
+                  <HeroAvatar name={item.hero.name} size="sm" />
+                  <span className="min-w-0">
+                    <strong className="block truncate">{item.hero.name}</strong>
+                    <span className="text-xs text-muted-foreground">{item.confidence.score}% trust</span>
+                  </span>
+                  <Badge>{item.win}%</Badge>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        <div className="scroll-soft grid max-h-[58vh] grid-cols-3 gap-2 overflow-auto pr-1 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-9">
+          {list.map((hero) => {
+            const disabled = unavailable.has(hero.name) || targetCount >= 5;
+            const poolLevel = pool[hero.name] || "none";
+            return (
+              <button key={hero.name} type="button" onClick={() => pick(hero.name)} disabled={disabled} className={cn("relative grid gap-1 rounded-md border border-border bg-secondary p-2 text-left transition hover:border-primary disabled:opacity-35", (hero.tier === "S" || hero.tier === "A") && "border-primary/25")}>
+                <HeroAvatar name={hero.name} size="lg" />
+                <strong className="truncate text-sm">{hero.name}</strong>
+                <span className="flex flex-wrap gap-1">
+                  <Badge>{hero.tier}</Badge>
+                  <Badge>{hero.roles[0]}</Badge>
+                  {poolLevel !== "none" ? <Badge className="border-primary/40 text-primary">{poolLabels[poolLevel]}</Badge> : null}
+                </span>
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onOpenHero(hero.name);
+                  }}
+                  className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full border border-border bg-background/85 text-xs font-black text-primary"
+                >
+                  i
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function TeamPlanBox({ plan }: { plan: ReturnType<typeof getTeamGamePlan> }) {
   const rows = [
