@@ -469,6 +469,17 @@ function RecommendationCard({ item, onOpenHero }: { item: ReturnType<typeof getR
             <li key={reason}>{reason}</li>
           ))}
         </ul>
+        <div className="grid gap-1 rounded-md border border-border bg-background p-2">
+          <p className="text-xs font-black uppercase text-muted-foreground">Почему советует</p>
+          {item.breakdown.slice(0, 5).map((part) => (
+            <div key={`${item.hero.name}-${part.label}-${part.value}`} className="grid grid-cols-[1fr_auto] gap-2 text-xs">
+              <span className="truncate text-muted-foreground" title={part.detail}>{part.label}</span>
+              <strong className={cn(part.tone === "good" && "text-primary", part.tone === "bad" && "text-destructive", part.tone === "neutral" && "text-muted-foreground")}>
+                {part.value > 0 ? `+${part.value}` : part.value}
+              </strong>
+            </div>
+          ))}
+        </div>
       </div>
       <div className="grid place-items-center rounded-lg bg-background p-3">
         <strong className="text-2xl">{item.win}%</strong>

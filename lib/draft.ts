@@ -22,6 +22,13 @@ export type BuildItem = {
   reason: string;
 };
 
+export type ScoreBreakdownItem = {
+  label: string;
+  value: number;
+  detail: string;
+  tone: "good" | "bad" | "neutral";
+};
+
 export const heroByName = new Map(heroes.map((hero) => [hero.name, hero]));
 
 const frontlineHeroes = new Set([
@@ -154,31 +161,65 @@ export function scoreHero(hero: Hero, state: DraftState, pool: Record<string, Po
   let score = hero.meta;
   const proSignal = getProSignal(hero.name);
   const reasons = [`Мета ${hero.tier}: ${hero.meta}`];
+  const breakdown: ScoreBreakdownItem[] = [
+    {
+      label: "Мета",
+      value: hero.meta,
+      detail: `${hero.tier}-tier в текущей базе`,
+      tone: hero.tier === "S" || hero.tier === "A" ? "good" : "neutral",
+    },
+  ];
   const directCounters: string[] = [];
   const threats: string[] = [];
 
   if (proSignal) {
     score += proSignal.scoreBoost;
     reasons.push(`Pro-сигнал ${proSignal.tier}: ${proSignal.evidence}`);
+    breakdown.push({
+      label: "Pro-сигнал",
+      value: proSignal.scoreBoost,
+      detail: proSignal.evidence,
+      tone: "good",
+    });
   }
 
   state.enemies.forEach((enemyName) => {
     const counterWeight = getCounterWeight(hero.name, enemyName);
     if (counterWeight) {
+      const value = Math.round(counterWeight / 4.2);
       score += counterWeight / 4.2;
       directCounters.push(enemyName);
       reasons.push(`${hero.name} закрывает ${enemyName}`);
+      breakdown.push({
+        label: `Контрит ${enemyName}`,
+        value,
+        detail: "Есть прямой матчап в базе контрпиков",
+        tone: "good",
+      });
     }
     if (hero.weakInto.includes(enemyName)) {
       score -= 28;
       threats.push(enemyName);
       reasons.push(`Риск против ${enemyName}`);
+      breakdown.push({
+        label: `Опасен ${enemyName}`,
+        value: -28,
+        detail: "Герой плохо играет в этот матчап",
+        tone: "bad",
+      });
     }
     const enemyCounterWeight = getCounterWeight(enemyName, hero.name);
     if (enemyCounterWeight) {
+      const value = -Math.round(enemyCounterWeight / 5);
       score -= enemyCounterWeight / 5;
       threats.push(enemyName);
       reasons.push(`${enemyName} может законтрить`);
+      breakdown.push({
+        label: `${enemyName} контрит`,
+        value,
+        detail: "Враг является ответом на этот пик",
+        tone: "bad",
+      });
     }
   });
 
@@ -186,21 +227,53 @@ export function scoreHero(hero: Hero, state: DraftState, pool: Record<string, Po
     if (hero.synergies.includes(ally) || heroByName.get(ally)?.synergies.includes(hero.name)) {
       score += 10;
       reasons.push(`Синергия с ${ally}`);
+      breakdown.push({
+        label: `Синергия с ${ally}`,
+        value: 10,
+        detail: "Пик усиливает уже выбранного союзника",
+        tone: "good",
+      });
     }
   });
 
-  if (state.role !== "Любая" && hero.roles.includes(state.role)) score += 8;
+  if (state.role !== "Любая" && hero.roles.includes(state.role)) {
+    score += 8;
+    breakdown.push({
+      label: "Подходит под слот",
+      value: 8,
+      detail: `Герой может играть ${state.role}`,
+      tone: "good",
+    });
+  }
 
   const level = pool[hero.name] || "none";
   if (level === "strong") {
     score += 18;
     reasons.push("Есть в твоём сильном пуле");
+    breakdown.push({
+      label: "Твой пул",
+      value: 18,
+      detail: "Отмечен как сильный герой",
+      tone: "good",
+    });
   } else if (level === "medium") {
     score += 7;
     reasons.push("Есть в твоём среднем пуле");
+    breakdown.push({
+      label: "Твой пул",
+      value: 7,
+      detail: "Отмечен как средний герой",
+      tone: "good",
+    });
   } else if (Object.values(pool).some((item) => item !== "none")) {
     score -= 16;
     reasons.push("Не отмечен в твоём пуле");
+    breakdown.push({
+      label: "Нет в пуле",
+      value: -16,
+      detail: "Ты уже отметил других героев, но не этого",
+      tone: "bad",
+    });
   }
 
   return {
@@ -208,6 +281,7 @@ export function scoreHero(hero: Hero, state: DraftState, pool: Record<string, Po
     score: Math.max(0, Math.min(150, score)),
     win: Math.max(35, Math.min(72, Math.round(48 + (score - 75) / 3))),
     reasons,
+    breakdown,
     directCounters,
     threats: [...new Set(threats)],
     stageProfile: getHeroStageScores(hero),
